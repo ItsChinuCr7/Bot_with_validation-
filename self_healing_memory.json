@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2026-03-08T13:41:15.428101",
+    "question": "research , tell me which diseases are not curable at all till present date.\n",
+    "original_answer": "According to the information available, Alzheimer's Disease is one of the incurable diseases as of the present date. Alzheimer's is a progressive neurodegenerative disorder that leads to memory loss, cognitive decline, and behavioral changes. Despite extensive research, there is currently no cure fo",
+    "verdict": "CORRECT",
+    "accuracy_score": 10.0,
+    "what_is_wrong": "None",
+    "correct_answer": "According to the information available, Alzheimer's Disease is one of the incurable diseases as of the present date. Alzheimer's is a progressive neurodegenerative disorder that leads to memory loss, cognitive decline, and behavioral changes. Despite extensive research, there is currently no cure fo",
+    "key_corrections": "None",
+    "was_corrected": false,
+    "validated_by": "duckduckgo+phi3"
+  },
+  {
+    "timestamp": "2026-03-08T13:47:23.025126",
+    "question": "research , tell me which diseases are not curable at all till present date.\n",
+    "original_answer": "Based on the information available, Alzheimer's Disease is one of the incurable diseases as of the present date. Alzheimer's is a progressive neurodegenerative disorder that leads to memory loss, cognitive decline, and behavioral changes. Despite extensive research, there is currently no cure for Al",
+    "verdict": "PARTIALLY_CORRECT",
+    "accuracy_score": 8.0,
+    "what_is_wrong": "The AI's answer does not mention any other diseases that are not curable, which is a significant omission given the question's scope.",
+    "correct_answer": "Based on the information available, Alzheimer's Disease is one of the incurable diseases as of the present date. Alzheimer's is a progressive neurodegenerative disorder that leads to memory loss, cognitive decline, and behavioral changes. Despite extensive research, there is currently no cure for Al",
+    "key_corrections": "To avoid this mistake, the AI should consider the broader context of the question and include other diseases that are not curable, not just Alzheimer's.",
+    "was_corrected": true,
+    "validated_by": "duckduckgo+phi3"
+  }
+]

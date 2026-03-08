@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env
+*.env
+
+# FAISS index (large binary files — rebuild locally)
+faiss_index/
+
+# Self healing memory (personal data)
+self_healing_memory.json
+
+# Streamlit
+.streamlit/
+
+# VS Code
+.vscode/
+
+# Model cache (huge files)
+.cache/
+models_cache/
+sentence_transformers/
+
+# HuggingFace cache
+~/.cache/huggingface/
+
+# Uploaded PDFs (user data)
+*.pdf
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# ChromeDriver (auto-downloaded)
+chromedriver*
+chromedriver.exe
