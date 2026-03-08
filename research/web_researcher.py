@@ -1,14 +1,23 @@
 # ============================================================
 # research/web_researcher.py
-# Sources: DuckDuckGo + Gemini
-# Final answer: Gemini synthesizes everything in one output
+#
+# Selenium-based web researcher using Brave browser
+#
+# Sources:
+#   duckduckgo  → search + scrape top result pages
+#   wikipedia   → direct article scrape
+#   bing        → additional results
+#   gemini      → opens Gemini in YOUR Brave (already logged in)
+#
+# Smart routing: LLM auto-picks sources per query
+# User override: "research on gemini ..." / "research on all ..."
 # ============================================================
 
-import time
 import re
+import time
 from urllib.parse import quote_plus
-from bs4 import BeautifulSoup
 
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -18,70 +27,87 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# ── Paths ─────────────────────────────────────────────────
-BRAVE_PATH    = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-BRAVE_PROFILE = r"C:\Users\chinm\AppData\Local\BraveSoftware\Brave-Browser"
-
 # ── Config ────────────────────────────────────────────────
-MAX_CHARS_PER_PAGE  = 3000   # per scraped page
-GEMINI_WAIT_SECS    = 40     # max wait for Gemini response
-GEMINI_MIN_WAIT     = 20     # minimum wait before checking
-PAGE_LOAD_TIMEOUT   = 10
-SCROLL_PAUSE        = 1.2
+BRAVE_PATH        = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+BRAVE_PROFILE_DIR = r"C:\Users\chinm\AppData\Local\BraveSoftware\Brave-Browser\User Data"
 
-ALL_SOURCES = ["duckduckgo", "gemini"]
+MAX_CHARS_PER_PAGE = 3000
+GEMINI_WAIT_SECS   = 20
+PAGE_LOAD_TIMEOUT  = 10
+SCROLL_PAUSE       = 1.2
 
-# ── Source selection prompt ───────────────────────────────
-SOURCE_SELECT_PROMPT = """You are a research routing agent.
-Available sources: duckduckgo, gemini
+ALL_SOURCES = ["duckduckgo", "wikipedia", "bing", "gemini"]
+
+_SOURCE_PROMPT = """You are a research routing agent.
+Pick the best 2-3 sources for this query from: duckduckgo, wikipedia, bing, gemini
 
 Rules:
-- For factual/technical/scientific → both
-- For current events/news → duckduckgo
-- For deep explanations/opinions → gemini
-- Default → both
+- Factual/encyclopedic -> wikipedia
+- Current events / recent news -> duckduckgo, bing
+- Deep explanations / opinions / summaries -> gemini
+- Technical / coding -> duckduckgo, gemini
+- Simple well-known fact -> just wikipedia
+- Only use ALL if explicitly requested
 
-Return ONLY comma-separated source names.
+Return ONLY a comma-separated list. No explanation.
+
 Query: {query}
 Sources:"""
 
 
-def decide_sources(llm, query: str, user_override: str = None) -> list:
-    if user_override:
-        override = user_override.lower()
-        if "all" in override:
-            return ALL_SOURCES
-        matched = [s for s in ALL_SOURCES if s in override]
-        if matched:
-            return matched
-    try:
-        result  = llm.invoke(SOURCE_SELECT_PROMPT.format(query=query)).content.strip().lower()
-        sources = [s.strip() for s in result.split(",") if s.strip() in ALL_SOURCES]
-        return sources if sources else ALL_SOURCES
-    except Exception:
-        return ALL_SOURCES
-
-
-def parse_user_source_override(query: str):
-    pattern = r"research\s+on\s+(gemini|duckduckgo|all)\s+(.+)"
-    match   = re.search(pattern, query, re.IGNORECASE)
-    if match:
-        return match.group(2).strip(), match.group(1).strip()
-    return query, None
-
+# ── Public helpers (imported by app.py) ──────────────────
 
 def extract_research_query(query: str) -> str:
-    clean = re.sub(r"\bresearch\b", "", query, flags=re.IGNORECASE).strip()
+    """Strip 'research' keyword and source overrides to get clean topic."""
+    clean = re.sub(r"\bresearch\b", "", query, flags=re.IGNORECASE)
+    clean = re.sub(r"\bon\s+(gemini|wikipedia|bing|duckduckgo|all)\b", "", clean, flags=re.IGNORECASE)
     clean = re.sub(r"\s+", " ", clean).strip(" ,:-")
     return clean if clean else query
 
 
-# ── Browser ───────────────────────────────────────────────
-def _build_brave_driver(headless: bool = False) -> webdriver.Chrome:
+def parse_user_source_override(query: str):
+    """
+    Detect if user specified a source override.
+    "research on gemini quantum computing" -> ("quantum computing", "gemini")
+    Returns (clean_query, override | None)
+    """
+    m = re.search(r"research\s+on\s+(gemini|wikipedia|bing|duckduckgo|all)\s+(.+)", query, re.IGNORECASE)
+    if m:
+        return m.group(2).strip(), m.group(1).strip()
+
+    m2 = re.search(r"research\s+on\s+([\w\s,and]+?)\s+(?:about|for|:|–|-)\s*(.+)", query, re.IGNORECASE)
+    if m2:
+        return m2.group(2).strip(), m2.group(1).strip()
+
+    return query, None
+
+
+def decide_sources(llm, query: str, user_override: str = None) -> list:
+    """LLM picks best sources; user override takes priority."""
+    if user_override:
+        ov = user_override.lower()
+        if "all" in ov:
+            return ALL_SOURCES
+        matched = [s for s in ALL_SOURCES if s in ov]
+        if matched:
+            return matched
+    try:
+        raw     = llm.invoke(_SOURCE_PROMPT.format(query=query)).content.strip().lower()
+        sources = [s.strip() for s in raw.split(",") if s.strip() in ALL_SOURCES]
+        return sources if sources else ["duckduckgo", "wikipedia"]
+    except Exception:
+        return ["duckduckgo", "wikipedia"]
+
+
+# ── Browser setup ─────────────────────────────────────────
+
+def _build_driver(headless: bool = True) -> webdriver.Chrome:
     options = Options()
     options.binary_location = BRAVE_PATH
+
     if headless:
         options.add_argument("--headless=new")
+
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -94,23 +120,28 @@ def _build_brave_driver(headless: bool = False) -> webdriver.Chrome:
     )
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
-    options.add_argument(f"--user-data-dir={BRAVE_PROFILE}")
-    options.add_argument("--profile-directory=Default")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    # Use a fresh temp session every time - avoids "profile locked" if Brave is open
+    import tempfile, os as _os
+    _tmp = _os.path.join(tempfile.gettempdir(), "brave_research_tmp")
+    _os.makedirs(_tmp, exist_ok=True)
+    options.add_argument(f"--user-data-dir={_tmp}")
     service = Service(ChromeDriverManager().install())
     driver  = webdriver.Chrome(service=service, options=options)
     driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT)
     return driver
 
 
-# ── Text Extractor ────────────────────────────────────────
-def _extract_text_and_tables(html: str, max_chars: int = MAX_CHARS_PER_PAGE) -> str:
+# ── Text extraction ───────────────────────────────────────
+
+def _extract(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer",
-                     "header", "aside", "form", "iframe", "noscript"]):
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form", "iframe", "noscript"]):
         tag.decompose()
-    output_parts = []
+    parts = []
     for table in soup.find_all("table"):
-        rows = table.find_all("tr")
+        rows  = table.find_all("tr")
         lines = []
         for row in rows:
             cells = row.find_all(["td", "th"])
@@ -118,319 +149,223 @@ def _extract_text_and_tables(html: str, max_chars: int = MAX_CHARS_PER_PAGE) -> 
             if line.strip():
                 lines.append(line)
         if lines:
-            output_parts.append("[TABLE]\n" + "\n".join(lines) + "\n[/TABLE]")
+            parts.append("[TABLE]\n" + "\n".join(lines) + "\n[/TABLE]")
         table.decompose()
     text = soup.get_text(separator=" ", strip=True)
     text = re.sub(r"\s+", " ", text).strip()
     if text:
-        output_parts.append(text)
-    return "\n\n".join(output_parts)[:max_chars]
+        parts.append(text)
+    return "\n\n".join(parts)[:MAX_CHARS_PER_PAGE]
 
 
-def _safe_get(driver, url: str) -> str:
+def _get(driver, url: str) -> str:
     try:
         driver.get(url)
         time.sleep(SCROLL_PAUSE)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
-        time.sleep(0.5)
+        time.sleep(0.4)
         return driver.page_source
     except Exception:
         return ""
 
 
-# ── Gemini Input Helper ───────────────────────────────────
-def _find_gemini_input(driver) -> object:
-    """Find Gemini's input box using multiple selectors."""
-    selectors = [
-        "rich-textarea div[contenteditable='true']",
-        "div[contenteditable='true'][data-placeholder]",
-        "div.ql-editor",
-        "textarea",
-    ]
-    for sel in selectors:
-        try:
-            box = WebDriverWait(driver, 5).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, sel))
-            )
-            if box:
-                return box
-        except Exception:
-            continue
-    return None
+# ── Source scrapers ───────────────────────────────────────
 
-
-def _wait_for_gemini_response(driver, min_wait: int = GEMINI_MIN_WAIT,
-                               max_wait: int = GEMINI_WAIT_SECS) -> str:
-    """
-    Wait for Gemini to finish its full response.
-    - Always waits at least min_wait seconds
-    - Then checks if text has stopped growing (response complete)
-    - Waits up to max_wait seconds total
-    """
-    print(f"[Gemini] Waiting minimum {min_wait}s for full response...")
-    time.sleep(min_wait)  # always wait minimum first
-
-    waited   = min_wait
-    interval = 3
-    response_text = ""
-
-    while waited < max_wait:
-        time.sleep(interval)
-        waited += interval
-
-        for sel in [
-            "div.response-container-content",
-            "div.model-response-text",
-            "p[data-path-to-node]",
-            "div[class*='response-content']",
-        ]:
-            try:
-                elements = driver.find_elements(By.CSS_SELECTOR, sel)
-                if elements:
-                    text = elements[-1].text.strip()
-                    if len(text) > 100:
-                        # Check if text stopped growing (Gemini finished)
-                        prev_len = len(text)
-                        time.sleep(3)
-                        elements2 = driver.find_elements(By.CSS_SELECTOR, sel)
-                        if elements2:
-                            new_len = len(elements2[-1].text.strip())
-                            if new_len == prev_len:
-                                response_text = elements2[-1].text.strip()
-                                print(f"[Gemini] Response complete ({new_len} chars, {waited}s)")
-                                return response_text
-            except Exception:
-                continue
-
-        print(f"[Gemini] Still generating... ({waited}s elapsed)")
-
-    # Return whatever we have even if not fully done
-    for sel in ["div.response-container-content", "div.model-response-text", "p[data-path-to-node]"]:
-        try:
-            elements = driver.find_elements(By.CSS_SELECTOR, sel)
-            if elements:
-                text = elements[-1].text.strip()
-                if text:
-                    print(f"[Gemini] Timeout — returning partial response ({len(text)} chars)")
-                    return text
-        except Exception:
-            continue
-
-    return ""
-
-
-def _send_to_gemini(driver, prompt: str, navigate: bool = False) -> str:
-    """
-    Send a prompt to Gemini and wait for full response.
-    Always opens a fresh new Gemini chat to avoid stale page state.
-    """
-    # Always navigate to a fresh Gemini chat — avoids "input box not found"
-    # after a previous conversation changed the page state
-    print("[Gemini] Opening fresh Gemini chat...")
-    driver.get("https://gemini.google.com/app")
-    time.sleep(5)  # give page time to fully load
-
-    # Retry finding input box up to 3 times
-    input_box = None
-    for attempt in range(3):
-        input_box = _find_gemini_input(driver)
-        if input_box:
-            break
-        print(f"[Gemini] Input box not found, retrying ({attempt+1}/3)...")
-        time.sleep(3)
-        driver.refresh()
-        time.sleep(4)
-
-    if not input_box:
-        print("[Gemini] Could not find input box after 3 attempts")
-        return ""
-
-    input_box.click()
-    time.sleep(0.5)
-
-    # Clipboard paste — entire prompt in ONE shot, never chunked
-    try:
-        import pyperclip
-        pyperclip.copy(prompt)
-        time.sleep(0.3)
-        input_box.send_keys(Keys.CONTROL + "a")
-        input_box.send_keys(Keys.DELETE)
-        time.sleep(0.3)
-        input_box.send_keys(Keys.CONTROL + "v")
-        time.sleep(1.0)
-        print(f"[Gemini] Pasted prompt via clipboard ({len(prompt)} chars)")
-    except Exception as e:
-        print(f"[Gemini] Clipboard failed: {e} — trying JS")
-        try:
-            driver.execute_script(
-                "arguments[0].focus();"
-                "document.execCommand('selectAll', false, null);"
-                "document.execCommand('insertText', false, arguments[1]);",
-                input_box, prompt
-            )
-            time.sleep(0.8)
-        except Exception as e2:
-            print(f"[Gemini] JS also failed: {e2}")
-            return ""
-
-    time.sleep(0.5)
-    input_box.send_keys(Keys.RETURN)
-
-    return _wait_for_gemini_response(driver)
-
-
-# ── DuckDuckGo Scraper ────────────────────────────────────
-def _scrape_duckduckgo(driver, query: str) -> list:
+def _duckduckgo(driver, query: str) -> list:
     results = []
-    urls    = []
     try:
         driver.get(f"https://duckduckgo.com/?q={quote_plus(query)}&ia=web")
         time.sleep(2.5)
-
         links = driver.find_elements(By.CSS_SELECTOR, "a[data-testid='result-title-a']")
-        for link in links[:4]:
-            href = link.get_attribute("href")
+        if not links:
+            links = driver.find_elements(By.CSS_SELECTOR, "article h2 a")
+        urls = []
+        for a in links[:4]:
+            href = a.get_attribute("href")
             if href and href.startswith("http") and "duckduckgo.com" not in href:
                 urls.append(href)
-
-        if not urls:
-            links = driver.find_elements(By.CSS_SELECTOR, "article h2 a")
-            for link in links[:4]:
-                href = link.get_attribute("href")
-                if href and href.startswith("http") and "duckduckgo.com" not in href:
-                    urls.append(href)
-
-        for url in urls[:3]:
-            html = _safe_get(driver, url)
+        for url in urls[:2]:
+            html = _get(driver, url)
             if html:
-                text = _extract_text_and_tables(html)
+                text = _extract(html)
                 if len(text) > 150:
-                    results.append({
-                        "source":  "duckduckgo",
-                        "url":     url,
-                        "content": text,
-                    })
+                    results.append({"source": "duckduckgo", "url": url, "content": text})
     except Exception as e:
-        print(f"[DDG error] {e}")
+        print(f"[DDG] {e}")
     return results
 
 
-# ── Gemini Research Scraper ───────────────────────────────
-def _scrape_gemini(driver, query: str) -> list:
-    """
-    Ask Gemini the research query directly.
-    Wait for FULL response before returning.
-    """
+def _wikipedia(driver, query: str) -> list:
     results = []
     try:
-        response = _send_to_gemini(driver, query, navigate=True)
-        if response:
+        driver.get(f"https://en.wikipedia.org/wiki/Special:Search?search={quote_plus(query)}")
+        time.sleep(2)
+        urls = []
+        if "/wiki/" in driver.current_url and "Special:Search" not in driver.current_url:
+            urls.append(driver.current_url)
+        else:
+            for a in driver.find_elements(By.CSS_SELECTOR, ".mw-search-result-heading a")[:2]:
+                href = a.get_attribute("href")
+                if href:
+                    urls.append(href)
+        for url in urls[:2]:
+            html = _get(driver, url)
+            if html:
+                text = _extract(html)
+                if len(text) > 150:
+                    results.append({"source": "wikipedia", "url": url, "content": text})
+    except Exception as e:
+        print(f"[Wiki] {e}")
+    return results
+
+
+def _bing(driver, query: str) -> list:
+    results = []
+    try:
+        driver.get(f"https://www.bing.com/search?q={quote_plus(query)}")
+        time.sleep(2)
+        urls = []
+        for a in driver.find_elements(By.CSS_SELECTOR, "li.b_algo h2 a")[:3]:
+            href = a.get_attribute("href")
+            if href and href.startswith("http") and "bing.com" not in href:
+                urls.append(href)
+        for url in urls[:2]:
+            html = _get(driver, url)
+            if html:
+                text = _extract(html)
+                if len(text) > 150:
+                    results.append({"source": "bing", "url": url, "content": text})
+    except Exception as e:
+        print(f"[Bing] {e}")
+    return results
+
+
+def _gemini(driver, query: str) -> list:
+    results = []
+    try:
+        driver.get("https://gemini.google.com/app")
+        time.sleep(5)
+        input_box = None
+        for sel in [
+            "rich-textarea div[contenteditable='true']",
+            "div[contenteditable='true']",
+            "div.ql-editor",
+            "textarea",
+        ]:
+            try:
+                input_box = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, sel))
+                )
+                if input_box:
+                    break
+            except Exception:
+                continue
+        if not input_box:
+            print("[Gemini] Input box not found")
+            return results
+
+        input_box.click()
+        time.sleep(0.5)
+        input_box.send_keys(query)
+        time.sleep(0.5)
+        input_box.send_keys(Keys.RETURN)
+        print(f"[Gemini] Waiting {GEMINI_WAIT_SECS}s...")
+        time.sleep(GEMINI_WAIT_SECS)
+
+        response_text = ""
+        for sel in [
+            "div.response-container-content",
+            "div.model-response-text",
+            "message-content div.markdown",
+            "div[class*='response-content']",
+            "div.presented-response-container",
+        ]:
+            try:
+                els = driver.find_elements(By.CSS_SELECTOR, sel)
+                if els:
+                    text = els[-1].text.strip()
+                    if len(text) > 50:
+                        response_text = text
+                        break
+            except Exception:
+                continue
+
+        if not response_text:
+            try:
+                paras = driver.find_elements(By.CSS_SELECTOR, "p[data-path-to-node]")
+                response_text = " ".join(p.text for p in paras if p.text.strip())
+            except Exception:
+                pass
+
+        if response_text:
+            print(f"[Gemini] Extracted {len(response_text)} chars")
             results.append({
                 "source":  "gemini",
                 "url":     "https://gemini.google.com/app",
-                "content": response,
+                "content": response_text[:MAX_CHARS_PER_PAGE],
             })
+        else:
+            print("[Gemini] No response found")
     except Exception as e:
-        print(f"[Gemini research error] {e}")
+        print(f"[Gemini] {e}")
     return results
 
 
-# ── Gemini Final Synthesizer ──────────────────────────────
-def _gemini_final_answer(driver, query: str, all_data: str) -> str:
-    """
-    Send ALL extracted data back to Gemini for final synthesis.
-    """
-    data_snippet = all_data[:5000]
+# ── Main entry point ──────────────────────────────────────
 
-    synthesis_prompt = (
-        f"TASK: Synthesize the research data below into one final answer.\n"
-        f"The data is already provided below — do not ask for more.\n\n"
-        f"QUESTION: {query}\n\n"
-        f"--- RESEARCH DATA START ---\n"
-        f"{data_snippet}\n"
-        f"--- RESEARCH DATA END ---\n\n"
-        f"Write a comprehensive answer (max 4000 chars) based ONLY on the data above. "
-        f"Include key facts, cite sources, use clear sections."
-    )
-
-    print(f"[Gemini] all_data length received: {len(all_data)} chars")
-    print(f"[Gemini] data_snippet length: {len(data_snippet)} chars")
-    print(f"[Gemini] Synthesis prompt length: {len(synthesis_prompt)} chars")
-    print(f"[Gemini] First 200 chars of data going to Gemini: {data_snippet[:200]}")
-    print("[Gemini] Sending all data for final synthesis...")
-    response = _send_to_gemini(driver, synthesis_prompt, navigate=False)
-    return response
-
-
-# ── Main Research Function ────────────────────────────────
 def run_research(query: str, sources: list) -> dict:
     """
-    Full research pipeline:
-    1. Scrape DuckDuckGo and/or Gemini
-    2. Send ALL data back to Gemini for final synthesis
-    3. Return structured results + final answer
+    Run research across all requested sources.
+
+    Returns dict with keys:
+        results      → list of {source, url, content}
+        context      → combined text for LLM
+        final_answer → same as context (used by app.py)
+        sources      → list of URLs scraped
+        error        → str or None
     """
     driver      = None
     all_results = []
+    headless    = "gemini" not in sources  # Gemini needs visible browser for login
 
     try:
-        print(f"[Research] Starting Brave browser...")
-        driver = _build_brave_driver(headless=False)
+        print(f"[Research] Launching Brave (headless={headless})...")
+        driver = _build_driver(headless=headless)
 
-        # ── Step 1: Scrape all sources ────────────────────
+        scraper_map = {
+            "duckduckgo": _duckduckgo,
+            "wikipedia":  _wikipedia,
+            "bing":       _bing,
+            "gemini":     _gemini,
+        }
+
         for source in sources:
-            print(f"[Research] Scraping: {source}")
-            if source == "duckduckgo":
-                results = _scrape_duckduckgo(driver, query)
-            elif source == "gemini":
-                results = _scrape_gemini(driver, query)
-            else:
-                continue
-            all_results.extend(results)
-            print(f"[Research] {source}: got {len(results)} result(s)")
+            if source in scraper_map:
+                print(f"[Research] → {source.upper()}")
+                all_results.extend(scraper_map[source](driver, query))
 
         if not all_results:
             return {
-                "results":      [],
-                "context":      "",
-                "final_answer": "",
-                "sources":      [],
-                "error":        "No content found. Try rephrasing.",
+                "results": [], "context": "", "final_answer": "",
+                "sources": [],
+                "error": "No content found. Try rephrasing or choosing different sources.",
             }
 
-        # ── Step 2: Build combined context ───────────────
-        parts = []
-        for i, r in enumerate(all_results):
-            parts.append(
-                f"[SOURCE {i+1} — {r['source'].upper()}]\n"
-                f"URL: {r['url']}\n"
-                f"CONTENT:\n{r['content']}"
-            )
-        combined_data = "\n\n" + ("=" * 60) + "\n\n".join(parts)
-
-        # ── Step 3: Send to Gemini for final synthesis ────
-        print("[Research] Sending all data to Gemini for synthesis...")
-        final_answer = _gemini_final_answer(driver, query, combined_data)
-
-        if not final_answer:
-            # Fallback: just return raw combined data
-            final_answer = combined_data[:4000]
+        parts    = [f"[{r['source'].upper()} — {r['url']}]\n{r['content']}" for r in all_results]
+        combined = "\n\n---\n\n".join(parts)
 
         return {
             "results":      all_results,
-            "context":      combined_data,
-            "final_answer": final_answer,
+            "context":      combined,
+            "final_answer": combined,
             "sources":      [r["url"] for r in all_results],
             "error":        None,
         }
 
     except Exception as e:
         return {
-            "results":      [],
-            "context":      "",
-            "final_answer": "",
-            "sources":      [],
-            "error":        str(e),
+            "results": [], "context": "", "final_answer": "",
+            "sources": [], "error": f"Research failed: {e}",
         }
 
     finally:

@@ -1,11 +1,16 @@
 # ============================================================
 # evaluation/self_healer.py
-# Self-Healing using Gemini via debuggerAddress (attaches to
-# your already-open Brave — keeps all logins)
+#
+# Validates AI answers using Gemini via your open Brave browser.
+# Brave must be running with --remote-debugging-port=9222
 # ============================================================
 
-import json, os, time, re
+import json
+import os
+import re
+import time
 from datetime import datetime
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -15,11 +20,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-MEMORY_FILE  = "self_healing_memory.json"
-BRAVE_PATH   = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-DEBUG_PORT   = "127.0.0.1:9222"
-WAIT_SECS    = 60
-MIN_WAIT     = 20
+MEMORY_FILE = "self_healing_memory.json"
+WAIT_SECS   = 60
+MIN_WAIT    = 20
+
+BRAVE_PATH = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+DEBUG_PORT  = "127.0.0.1:9222"
 
 VALIDATION_PROMPT = """You are an AI answer validator.
 
@@ -27,16 +33,17 @@ QUESTION: {question}
 
 AI ANSWER: {answer}
 
-Validate this answer and respond in EXACT format:
+Validate this answer. Respond in EXACT format below (no extra text):
 
 VERDICT: [CORRECT / PARTIALLY_CORRECT / WRONG]
 ACCURACY_SCORE: [0-10]
-WHAT_IS_WRONG: [specific errors or None]
+WHAT_IS_WRONG: [specific errors, or None]
 CORRECT_ANSWER: [the accurate complete answer]
 KEY_CORRECTIONS: [what to remember to avoid this mistake next time]"""
 
 
 # ── Memory ────────────────────────────────────────────────
+
 class HealingMemory:
     def __init__(self, memory_file: str = MEMORY_FILE):
         self.memory_file = memory_file
@@ -81,8 +88,10 @@ class HealingMemory:
         wrong   = sum(1 for m in self.memories if m.get("verdict") == "WRONG")
         partial = sum(1 for m in self.memories if m.get("verdict") == "PARTIALLY_CORRECT")
         return {
-            "total": total, "correct": correct,
-            "wrong": wrong, "partial": partial,
+            "total":    total,
+            "correct":  correct,
+            "wrong":    wrong,
+            "partial":  partial,
             "accuracy": round(correct / total * 100, 1) if total > 0 else 0,
         }
 
@@ -101,58 +110,54 @@ class HealingMemory:
         return "\n".join(lines)
 
 
-# ── Connect to existing Brave (debuggerAddress) ───────────
+# ── Attach to Brave ───────────────────────────────────────
+
 def _attach_to_brave() -> webdriver.Chrome:
     """
-    Attach to your already-open Brave browser.
-    Brave must be started with --remote-debugging-port=9222
+    Attach Selenium to your already-running Brave browser.
+    Start Brave first with:
+        brave.exe --remote-debugging-port=9222
+    Or double-click start_brave.bat
     """
     options = Options()
     options.binary_location = BRAVE_PATH
     options.add_experimental_option("debuggerAddress", DEBUG_PORT)
     service = Service(ChromeDriverManager().install())
     driver  = webdriver.Chrome(service=service, options=options)
-    print(f"[SelfHealer] Attached to Brave at {DEBUG_PORT}")
+    print(f"[SelfHealer] Attached to Brave at {DEBUG_PORT} ✅")
     return driver
 
 
-# ── Send prompt to Gemini ─────────────────────────────────
-def _send_to_gemini_and_wait(driver, prompt: str) -> str:
-    """
-    Navigate to Gemini, send prompt, wait for FULL response.
-    Uses your existing logged-in Brave session.
-    """
-    # Open fresh Gemini chat
-    driver.get("https://gemini.google.com/app")
-    time.sleep(5)
+# ── Send to Gemini and wait ───────────────────────────────
 
-    # Find input — try multiple selectors
+def _send_to_gemini(driver, prompt: str) -> str:
+    """Navigate to Gemini, paste prompt, wait for full response."""
+    driver.get("https://gemini.google.com/app")
+    time.sleep(6)
+
+    # Find input
     input_box = None
-    selectors = [
-        "div.ql-editor[contenteditable='true']",
+    for sel in [
         "rich-textarea div[contenteditable='true']",
         "div[contenteditable='true']",
+        "div.ql-editor",
         "textarea",
-        "p[data-placeholder]",
-    ]
-    for sel in selectors:
+    ]:
         try:
             input_box = WebDriverWait(driver, 6).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, sel))
             )
             if input_box:
-                print(f"[SelfHealer] Found input with: {sel}")
+                print(f"[SelfHealer] Input found: {sel}")
                 break
         except Exception:
             continue
 
     if not input_box:
-        # Last resort — find any contenteditable
         try:
-            elements  = driver.find_elements(By.XPATH, "//*[@contenteditable='true']")
-            if elements:
-                input_box = elements[-1]
-                print("[SelfHealer] Found input via XPath")
+            els = driver.find_elements(By.XPATH, "//*[@contenteditable='true']")
+            if els:
+                input_box = els[-1]
         except Exception:
             pass
 
@@ -160,50 +165,34 @@ def _send_to_gemini_and_wait(driver, prompt: str) -> str:
         print("[SelfHealer] Could not find Gemini input box")
         return ""
 
-    # Click and clear
+    # Paste prompt via clipboard
     input_box.click()
-    time.sleep(0.5)
-
-    # Use pyperclip clipboard — entire prompt copied and pasted in ONE shot
-    # This prevents Gemini receiving text as multiple messages
+    time.sleep(0.4)
     try:
         import pyperclip
         pyperclip.copy(prompt)
         time.sleep(0.3)
         input_box.send_keys(Keys.CONTROL + "a")
         input_box.send_keys(Keys.DELETE)
-        time.sleep(0.3)
+        time.sleep(0.2)
         input_box.send_keys(Keys.CONTROL + "v")
-        time.sleep(1.0)  # wait for paste to complete fully
-        print(f"[SelfHealer] Pasted prompt via clipboard ({len(prompt)} chars)")
-    except Exception as e:
-        print(f"[SelfHealer] Clipboard failed: {e} — trying JS insert")
-        try:
-            driver.execute_script(
-                "arguments[0].focus();"
-                "document.execCommand('selectAll', false, null);"
-                "document.execCommand('insertText', false, arguments[1]);",
-                input_box, prompt
-            )
-            time.sleep(0.8)
-        except Exception as e2:
-            print(f"[SelfHealer] JS insert also failed: {e2}")
-            return ""
+        time.sleep(0.8)
+        print(f"[SelfHealer] Pasted {len(prompt)} chars via clipboard")
+    except Exception:
+        # Fallback: type directly
+        input_box.send_keys(prompt[:500])
+        time.sleep(0.5)
 
-    # Submit
     input_box.send_keys(Keys.RETURN)
-    print(f"[SelfHealer] Prompt sent ({len(prompt)} chars). Waiting for response...")
-
-    # Wait — minimum MIN_WAIT seconds always
+    print(f"[SelfHealer] Submitted. Waiting {MIN_WAIT}s minimum...")
     time.sleep(MIN_WAIT)
 
-    # Then poll until text stops growing
+    # Poll until response stops growing
     waited   = MIN_WAIT
     interval = 3
     response_selectors = [
         "div.response-container-content",
         "div.model-response-text",
-        "div[data-response-id]",
         "p[data-path-to-node]",
         "div.markdown",
         "message-content",
@@ -212,59 +201,60 @@ def _send_to_gemini_and_wait(driver, prompt: str) -> str:
     while waited < WAIT_SECS:
         time.sleep(interval)
         waited += interval
-
         for sel in response_selectors:
             try:
-                elements = driver.find_elements(By.CSS_SELECTOR, sel)
-                if not elements:
+                els = driver.find_elements(By.CSS_SELECTOR, sel)
+                if not els:
                     continue
-                text = elements[-1].text.strip()
+                if "data-path-to-node" in sel:
+                    text = "\n".join(e.text.strip() for e in els if e.text.strip())
+                else:
+                    text = els[-1].text.strip()
                 if len(text) < 50:
                     continue
-
-                # Check text stopped growing = Gemini finished
-                prev_len = len(text)
+                prev = len(text)
                 time.sleep(3)
-                elements2 = driver.find_elements(By.CSS_SELECTOR, sel)
-                if elements2:
-                    new_text = elements2[-1].text.strip()
-                    if len(new_text) == prev_len and prev_len > 50:
-                        print(f"[SelfHealer] Gemini done ({prev_len} chars, {waited}s)")
+                els2 = driver.find_elements(By.CSS_SELECTOR, sel)
+                if els2:
+                    if "data-path-to-node" in sel:
+                        new_text = "\n".join(e.text.strip() for e in els2 if e.text.strip())
+                    else:
+                        new_text = els2[-1].text.strip()
+                    if len(new_text) == prev:
+                        print(f"[SelfHealer] Done: {prev} chars ({waited}s)")
                         return new_text
             except Exception:
                 continue
+        print(f"[SelfHealer] Waiting... ({waited}s)")
 
-        print(f"[SelfHealer] Still waiting... ({waited}s)")
-
-    # Timeout — return whatever is there
+    # Timeout — return whatever exists
     for sel in response_selectors:
         try:
-            elements = driver.find_elements(By.CSS_SELECTOR, sel)
-            if elements:
-                text = elements[-1].text.strip()
+            els = driver.find_elements(By.CSS_SELECTOR, sel)
+            if els:
+                text = els[-1].text.strip()
                 if text:
-                    print(f"[SelfHealer] Timeout — returning partial ({len(text)} chars)")
                     return text
         except Exception:
             continue
-
     return ""
 
 
-# ── Parse Gemini Response ─────────────────────────────────
+# ── Parse Gemini's validation response ───────────────────
+
 def _parse_response(response: str) -> dict:
-    def extract(label, text):
-        m = re.search(rf"{label}:\s*(.+?)(?=\n[A-Z_]+:|$)", text, re.DOTALL | re.IGNORECASE)
+    def extract(label):
+        m = re.search(rf"{label}:\s*(.+?)(?=\n[A-Z_]+:|$)", response, re.DOTALL | re.IGNORECASE)
         return m.group(1).strip() if m else ""
 
-    verdict        = extract("VERDICT", response).upper()
-    accuracy_str   = extract("ACCURACY_SCORE", response)
-    what_is_wrong  = extract("WHAT_IS_WRONG", response)
-    correct_answer = extract("CORRECT_ANSWER", response)
-    key_corrections= extract("KEY_CORRECTIONS", response)
+    verdict        = extract("VERDICT").upper()
+    accuracy_str   = extract("ACCURACY_SCORE")
+    what_is_wrong  = extract("WHAT_IS_WRONG")
+    correct_answer = extract("CORRECT_ANSWER")
+    key_corrections= extract("KEY_CORRECTIONS")
 
     try:
-        accuracy = float(re.search(r'\d+\.?\d*', accuracy_str).group())
+        accuracy = float(re.search(r"\d+\.?\d*", accuracy_str).group())
     except Exception:
         accuracy = 5.0
 
@@ -272,39 +262,43 @@ def _parse_response(response: str) -> dict:
         verdict = "CORRECT" if accuracy >= 8 else ("PARTIALLY_CORRECT" if accuracy >= 5 else "WRONG")
 
     return {
-        "verdict":         verdict,
-        "accuracy_score":  accuracy,
-        "what_is_wrong":   what_is_wrong,
-        "correct_answer":  correct_answer,
-        "key_corrections": key_corrections,
+        "verdict":          verdict,
+        "accuracy_score":   accuracy,
+        "what_is_wrong":    what_is_wrong,
+        "correct_answer":   correct_answer,
+        "key_corrections":  key_corrections,
     }
 
 
-# ── Main Self-Heal ────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────
+
 def self_heal(
     question:        str,
     original_answer: str,
     memory:          HealingMemory,
     context:         str = "",
-    llm=None,        # not used but kept for compatibility
+    llm=None,
 ) -> dict:
     """
-    Validates answer using Gemini via your existing Brave session.
-    Brave must be running with --remote-debugging-port=9222
+    Validate answer via Gemini running in your Brave.
+    Brave must be open with --remote-debugging-port=9222
     """
     driver = None
     try:
         driver = _attach_to_brave()
     except Exception as e:
-        print(f"[SelfHealer] Could not attach to Brave: {e}")
-        print("[SelfHealer] Make sure Brave is running with --remote-debugging-port=9222")
+        msg = (
+            f"Could not attach to Brave: {e}\n"
+            "Fix: start Brave with debug port using start_brave.bat"
+        )
+        print(f"[SelfHealer] {msg}")
         return {
             "final_answer":   original_answer,
             "verdict":        "UNKNOWN",
             "accuracy_score": 0,
             "was_corrected":  False,
             "what_was_wrong": "",
-            "gemini_said":    f"Could not connect to Brave. Start Brave with debug port 9222.",
+            "gemini_said":    msg,
         }
 
     try:
@@ -312,7 +306,7 @@ def self_heal(
             question=question,
             answer=original_answer[:800],
         )
-        response = _send_to_gemini_and_wait(driver, prompt)
+        response = _send_to_gemini(driver, prompt)
 
         if not response:
             return {
@@ -321,15 +315,15 @@ def self_heal(
                 "accuracy_score": 0,
                 "was_corrected":  False,
                 "what_was_wrong": "",
-                "gemini_said":    "Gemini did not respond. Check Brave is open and logged in.",
+                "gemini_said":    "Gemini gave no response. Is Brave logged in to Gemini?",
             }
 
-        validation     = _parse_response(response)
-        verdict        = validation["verdict"]
-        correct_answer = validation["correct_answer"].strip()
-        what_is_wrong  = validation["what_is_wrong"].strip()
-        key_corr       = validation["key_corrections"].strip()
-        accuracy       = validation["accuracy_score"]
+        parsed         = _parse_response(response)
+        verdict        = parsed["verdict"]
+        correct_answer = parsed["correct_answer"]
+        what_is_wrong  = parsed["what_is_wrong"]
+        key_corr       = parsed["key_corrections"]
+        accuracy       = parsed["accuracy_score"]
 
         was_corrected = False
         if verdict in ["WRONG", "PARTIALLY_CORRECT"] and correct_answer and len(correct_answer) > 20:
@@ -350,9 +344,9 @@ def self_heal(
             "was_corrected":   was_corrected,
             "validated_by":    "gemini",
         })
-        print(f"[SelfHealer] Verdict: {verdict} ({accuracy}/10), corrected: {was_corrected}")
+        print(f"[SelfHealer] Verdict: {verdict} ({accuracy}/10) | Corrected: {was_corrected}")
 
-        parts = [f"Verdict: {verdict} ({accuracy}/10) — validated by Gemini"]
+        parts = [f"Verdict: {verdict} ({accuracy}/10) — Gemini validated"]
         if what_is_wrong and what_is_wrong.lower() not in ["none", ""]:
             parts.append(f"Issues: {what_is_wrong[:200]}")
         if was_corrected:
@@ -370,5 +364,4 @@ def self_heal(
         }
 
     finally:
-        # Don't quit driver — we attached to existing Brave, don't close it!
-        pass
+        pass  # Never quit — Brave belongs to the user
