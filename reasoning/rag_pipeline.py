@@ -8,49 +8,19 @@ from reasoning.context_builder import build_context
 from reasoning.query_rewriter import rewrite_query
 from retrieval.smart_retriever import smart_retrieve
 from config.settings import MAX_REASONING_DEPTH
+import logging
+
+logger = logging.getLogger(__name__)
+
+from prompts.templates import (
+    RAG_PROMPT,
+    RAG_PROMPT_NO_HISTORY,
+    GENERAL_PROMPT_WITH_HISTORY,
+    QUERY_REWRITE_WITH_HISTORY_PROMPT,
+    FALLBACK_SEARCH_PROMPT,
+)
 
 MEMORY_TURNS = 3
-
-RAG_PROMPT = """You are a precise document assistant with memory of the conversation.
-
-Answer using the context below AND conversation history.
-Use history to resolve follow-up references like "it", "that", "they".
-If answer not found, say: "I could not find this in the documents."
-Cite the source file and section when possible.
-
-Conversation History:
-{history}
-
-Document Context:
-{context}
-
-Current Question: {question}
-
-Answer:"""
-
-RAG_PROMPT_NO_HISTORY = """You are a precise document assistant.
-
-Answer using ONLY the context below.
-If not found, say: "I could not find this in the documents."
-Cite source file and section when possible.
-
-Document Context:
-{context}
-
-Question: {question}
-
-Answer:"""
-
-GENERAL_PROMPT_WITH_HISTORY = """You are a knowledgeable AI assistant with memory of the conversation.
-Use history to understand follow-up questions.
-Answer from your own knowledge clearly and accurately.
-
-Conversation History:
-{history}
-
-Current Question: {question}
-
-Answer:"""
 
 
 def format_history(chat_history: list, max_turns: int = MEMORY_TURNS) -> str:
@@ -85,12 +55,9 @@ def run_rag_pipeline(
     # Step 1: Rewrite query
     if depth == 0 and chat_history:
         history_str = format_history(chat_history, max_turns=1)
-        rewrite_prompt = f"""Rewrite this question into a keyword-dense search query.
-Use conversation history to resolve pronouns.
-
-History: {history_str}
-Question: {query}
-Rewritten (max 15 words):"""
+        rewrite_prompt = QUERY_REWRITE_WITH_HISTORY_PROMPT.format(
+            history=history_str, question=query
+        )
         try:
             search_query = llm.invoke(rewrite_prompt).content.strip()
             if not search_query or len(search_query) > 200:
@@ -144,7 +111,7 @@ Rewritten (max 15 words):"""
     if depth < MAX_REASONING_DEPTH:
         for signal in ["i could not find", "not in the context"]:
             if signal in answer.lower():
-                fallback = f"Write a different 5-word search query for: {query}\n\nQuery:"
+                fallback = FALLBACK_SEARCH_PROMPT.format(question=query)
                 new_query = llm.invoke(fallback).content.strip()
                 return run_rag_pipeline(
                     llm, retriever, new_query, chat_history, document_trees, depth + 1

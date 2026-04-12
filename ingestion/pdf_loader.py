@@ -5,11 +5,16 @@
 
 import tempfile
 import os
+import logging
 import fitz
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from ingestion.document_tree import DocumentTree
 from config.settings import CHUNK_SIZE, CHUNK_OVERLAP
+from processing.preprocessor import clean_text, clean_documents
+from processing.chunker import chunk_documents
+
+logger = logging.getLogger(__name__)
 
 
 def load_and_split_pdfs(uploaded_files: list) -> tuple:
@@ -38,9 +43,10 @@ def load_and_split_pdfs(uploaded_files: list) -> tuple:
             for page_num in range(len(pdf)):
                 page = pdf[page_num]
                 text = page.get_text("text")
-                if text.strip():
+                cleaned = clean_text(text)
+                if cleaned:
                     pages.append(Document(
-                        page_content=text,
+                        page_content=cleaned,
                         metadata={
                             "source_file": original_name,
                             "page":        page_num + 1,
@@ -66,10 +72,10 @@ def load_and_split_pdfs(uploaded_files: list) -> tuple:
             all_chunks.extend(pages)
 
             node_count = len(tree.all_nodes)
-            print(f"[PDF Loader] {original_name}: {len(pages)} pages, {node_count} tree nodes")
+            logger.info(f"PDF Loader: {original_name} — {len(pages)} pages, {node_count} tree nodes")
 
         except Exception as e:
-            print(f"[PDF Loader] Error loading {original_name}: {e}")
+            logger.error(f"PDF Loader error {original_name}: {e}", exc_info=True)
         finally:
             try:
                 os.unlink(tmp_path)
@@ -79,11 +85,8 @@ def load_and_split_pdfs(uploaded_files: list) -> tuple:
     if not all_chunks:
         return [], {}
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],
-    )
-    chunks = splitter.split_documents(all_chunks)
-    print(f"[PDF Loader] Total: {len(chunks)} chunks, {len(all_trees)} document tree(s)")
+    # Clean then chunk
+    all_chunks = clean_documents(all_chunks)
+    chunks     = chunk_documents(all_chunks)
+    logger.info(f"PDF Loader: {len(chunks)} chunks, {len(all_trees)} tree(s) ready")
     return chunks, all_trees

@@ -1,14 +1,21 @@
 import streamlit as st
 import os
 import time
+import logging
+from config.logging_config import setup_logging
+setup_logging("INFO")
+logger = logging.getLogger(__name__)
 
-from models.llm import load_llm, load_llm_heavy
+from models.llm import load_llm, load_llm_heavy, reload_llm
+from models.model_factory import get_available_models, get_model_info
 from models.embeddings import load_embeddings
 from ingestion.pdf_loader import load_and_split_pdfs
 from retrieval.vector_store import create_vector_store, load_vector_store
 from retrieval.retriever import get_mmr_retriever
 from retrieval.hybrid_search import HybridSearcher
 from reasoning.rag_pipeline import run_rag_pipeline, run_general_with_memory, format_history
+from inference.inference_engine import run_inference
+from data.cache.cache_manager import get_cache_stats, clear_cache
 from agents.agent_router import (
     route_query, route_with_llm,
     handle_web_query, handle_calc_query, handle_chat_query,
@@ -18,7 +25,6 @@ from research.web_researcher import (
     run_research, extract_research_query,
 )
 from evaluation.answer_validator import validate_answer, format_confidence_badge
-from evaluation.self_healer import HealingMemory, self_heal
 from config.settings import VECTOR_INDEX_PATH
 
 # ── Page config ───────────────────────────────────────────
@@ -94,7 +100,6 @@ body { background-color: #0e0e16; }
 .badge-research { background:#1a2a00; color:#88cc00; border:1px solid #446600; }
 .badge-rag      { background:#001a2a; color:#0088cc; border:1px solid #004466; }
 .badge-general  { background:#1a001a; color:#aa44aa; border:1px solid #660066; }
-.badge-gemini   { background:#1a1a00; color:#ccaa00; border:1px solid #665500; }
 
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] { background: #0a0a14; }
@@ -104,18 +109,41 @@ section[data-testid="stSidebar"] .stRadio label { font-size: 13px; }
 
 # ── Load models (cached) ──────────────────────────────────
 @st.cache_resource
-def _load_models():
-    return load_llm(), load_llm_heavy(), load_embeddings()
+def _load_models(model_name: str = None):
+    return load_llm(model_name), load_llm_heavy(), load_embeddings()
 
-llm, llm_heavy, embeddings = _load_models()
+# Model selector — persists across reruns
+if "selected_model" not in st.session_state:
+    st.session_state["selected_model"] = None
 
-if "healing_memory" not in st.session_state:
-    st.session_state["healing_memory"] = HealingMemory()
-healing_memory = st.session_state["healing_memory"]
+_sel = st.session_state.get("selected_model")
+llm, llm_heavy, embeddings = _load_models(_sel)
 
 # ── Sidebar ───────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
+    st.divider()
+
+    # ── Model Selector ─────────────────────────────────────
+    st.markdown("**🤖 Active Model**")
+    available_models = get_available_models()
+    from config.settings import LLM_MODEL
+    default_idx = available_models.index(LLM_MODEL) if LLM_MODEL in available_models else 0
+    chosen_model = st.selectbox(
+        "Select model",
+        available_models,
+        index=default_idx,
+        label_visibility="collapsed",
+    )
+    if chosen_model != st.session_state.get("selected_model"):
+        st.session_state["selected_model"] = chosen_model
+        _load_models.clear()
+        st.rerun()
+
+    # Show model info
+    info = get_model_info(chosen_model)
+    if info["parameters"] != "unknown":
+        st.caption(f"Params: {info['parameters']} · {info['quantization']} · {info['family']}")
     st.divider()
 
     uploaded_files = st.file_uploader(
@@ -130,21 +158,57 @@ with st.sidebar:
             st.warning("Upload at least one PDF first.")
         else:
             with st.status("Processing documents...", expanded=True) as status:
-                st.write("📖 Reading PDF files...")
+
+                # ── Step 1: Read PDFs ──────────────────────────
+                st.write("📖 **Step 1/4** — Reading PDF files...")
+                prog = st.progress(0, text="Loading pages...")
+                import time as _time
+                _time.sleep(0.2)
+                prog.progress(10, text="Parsing PDF structure...")
+
                 chunks, doc_trees = load_and_split_pdfs(uploaded_files)
-                st.write(f"✅ Extracted **{len(chunks)}** chunks")
+
+                prog.progress(30, text=f"Extracted {len(chunks)} chunks")
+                st.write(f"✅ **{len(chunks)} chunks** extracted from {len(uploaded_files)} file(s)")
+
+                # ── Step 2: Document Tree ──────────────────────
+                st.write("🌳 **Step 2/4** — Building document tree...")
+                prog.progress(45, text="Mapping document structure...")
                 total_nodes = sum(len(t.all_nodes) for t in doc_trees.values())
-                st.write(f"🌳 Document tree: **{total_nodes}** sections")
-                st.write("🔢 Building vector index...")
+                st.write(f"✅ **{total_nodes} sections** indexed in tree")
+
+                # ── Step 3: Vector Index ───────────────────────
+                st.write("🔢 **Step 3/4** — Building FAISS vector index...")
+                st.caption(f"  Embedding {len(chunks)} chunks with BAAI/bge-small-en-v1.5 — this is the slow part, please wait...")
+                prog.progress(50, text=f"Embedding chunks (0/{len(chunks)})...")
+
+                # Batch progress simulation during embedding
+                batch = max(1, len(chunks) // 10)
+                for i in range(10):
+                    prog.progress(50 + i*4, text=f"Embedding chunks (~{(i+1)*batch}/{len(chunks)})...")
+                    _time.sleep(0.05)
+
                 vector_db = create_vector_store(chunks, embeddings)
+                prog.progress(90, text="Vector index built!")
+                st.write(f"✅ **FAISS index ready** — {len(chunks)} vectors stored")
+
                 st.session_state["vector_db"] = vector_db
                 st.session_state["docs"]       = chunks
                 st.session_state["doc_trees"]  = doc_trees
+
+                # ── Step 4: BM25 ───────────────────────────────
                 if use_hybrid:
-                    st.write("📊 Building BM25 index...")
+                    st.write("📊 **Step 4/4** — Building BM25 keyword index...")
+                    prog.progress(93, text="Building BM25 index...")
                     st.session_state["hybrid_searcher"] = HybridSearcher(chunks, vector_db, alpha=0.5)
+                    st.write("✅ **BM25 index ready**")
+                else:
+                    st.write("⏭️ **Step 4/4** — BM25 skipped (Hybrid Search off)")
+
+                prog.progress(100, text="All done!")
+                st.balloons()
                 status.update(
-                    label=f"✅ Done! {len(chunks)} chunks · {total_nodes} tree nodes",
+                    label=f"✅ Done! {len(chunks)} chunks · {total_nodes} sections · ready to query",
                     state="complete"
                 )
 
@@ -157,63 +221,39 @@ with st.sidebar:
     st.markdown("**🎯 Answer Mode**")
     answer_mode = st.radio(
         label="answer_mode_radio",
-        options=["🤖 Auto (smart detect)", "🔍 Research (web)", "💡 General (phi3)", "📄 RAG (documents)"],
+        options=["🤖 Auto (smart detect)", "💡 General (phi3)", "📄 RAG (documents)"],
         index=0,
         label_visibility="collapsed",
     )
     mode_map = {
         "🤖 Auto (smart detect)": None,
-        "🔍 Research (web)":      "research",
         "💡 General (phi3)":      "general",
         "📄 RAG (documents)":     "rag",
     }
     forced_mode = mode_map[answer_mode]
 
-    if forced_mode == "research":
-        st.caption("🌐 All queries will search DuckDuckGo + Wikipedia + Bing + Gemini")
-
     st.divider()
-    healing_on = st.checkbox(
-        "🔬 Self-Healing (Gemini Validator)", value=False,
-        help="Validates answers using Gemini in your Brave browser. Adds ~30-60s per query.\nBrave must be open with --remote-debugging-port=9222"
-    )
-
-    if healing_on:
-        st.markdown("**Heal which routes:**")
-        heal_rag      = st.checkbox("📄 RAG answers",          value=True)
-        heal_general  = st.checkbox("💡 General knowledge",    value=False)
-        heal_research = st.checkbox("🔍 Research answers",     value=False)
-        heal_routes   = (
-            (["rag"]       if heal_rag      else []) +
-            (["general"]   if heal_general  else []) +
-            (["research"]  if heal_research else [])
-        )
-    else:
-        heal_routes = []
-
-    # Stats
-    stats = healing_memory.get_stats()
-    if stats["total"] > 0:
-        st.divider()
-        st.markdown("**📊 Learning Stats**")
-        accuracy_color = "#44ff88" if stats["accuracy"] >= 80 else ("#ffaa00" if stats["accuracy"] >= 60 else "#ff5555")
-        st.markdown(f"""<div class="stat-box">
-Validated: <b>{stats['total']}</b> &nbsp;|&nbsp;
-Correct: <b style="color:#44ff88">{stats['correct']}</b> &nbsp;|&nbsp;
-Wrong: <b style="color:#ff5555">{stats['wrong']}</b><br>
-Partial: <b style="color:#ffaa44">{stats['partial']}</b> &nbsp;|&nbsp;
-Accuracy: <b style="color:{accuracy_color}">{stats['accuracy']}%</b>
-</div>""", unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("**💡 Research examples**")
-    st.caption("`research black holes`")
-    st.caption("`research on gemini quantum physics`")
-    st.caption("`research on all climate change`")
 
     if st.button("🗑️ Clear Chat", use_container_width=True):
         st.session_state.chat_history = []
         st.rerun()
+
+
+
+    st.divider()
+    st.markdown("**📋 Logs**")
+    log_path = os.path.join(os.path.dirname(__file__), "logs", "app.log")
+    if os.path.exists(log_path):
+        with st.expander("View recent logs"):
+            with open(log_path, "r", encoding="utf-8") as _lf:
+                lines = _lf.readlines()
+            last50 = "".join(lines[-50:])
+            st.code(last50, language="text")
+        if st.button("🗑️ Clear Logs", use_container_width=True):
+            open(log_path, "w").close()
+            st.success("Logs cleared!")
+    else:
+        st.caption("No logs yet")
 
 # ── Auto-load saved vector index ─────────────────────────
 if "vector_db" not in st.session_state and os.path.exists(VECTOR_INDEX_PATH):
@@ -228,7 +268,7 @@ st.markdown("# 🤖 AI Document Intelligence Assistant")
 col1, col2, col3 = st.columns([3, 1, 1])
 with col1:
     if "vector_db" not in st.session_state:
-        st.info("📭 No documents loaded — I can answer general questions and research the web!")
+        st.info("📭 No documents loaded — upload PDFs or ask general questions!")
     else:
         tree_count = sum(len(t.all_nodes) for t in st.session_state.get("doc_trees", {}).values())
         st.success(f"📚 Documents loaded — {tree_count} tree sections indexed")
@@ -238,8 +278,7 @@ with col2:
     else:
         st.warning("Memory OFF")
 with col3:
-    if healing_on:
-        st.success("🔬 Healing ON")
+    pass
 
 # ── Chat history ──────────────────────────────────────────
 if "chat_history" not in st.session_state:
@@ -249,7 +288,7 @@ for entry in st.session_state.chat_history:
     if entry["role"] == "user":
         st.markdown(f'<div class="user-bubble">{entry["message"]}</div>', unsafe_allow_html=True)
     else:
-        bubble = "healed-bubble" if entry.get("was_corrected") else "bot-bubble"
+        bubble = "bot-bubble"
         st.markdown(f'<div class="{bubble}">{entry["message"]}</div>', unsafe_allow_html=True)
 
         if entry.get("source_extracts"):
@@ -264,195 +303,46 @@ for entry in st.session_state.chat_history:
 {body}{dots}
 </div>""", unsafe_allow_html=True)
 
-        if entry.get("gemini_feedback"):
-            with st.expander("🔬 Gemini Validation Details"):
-                st.markdown(f'<div class="gemini-card">{entry["gemini_feedback"]}</div>', unsafe_allow_html=True)
-
         if entry.get("meta"):
             st.markdown(f'<div class="meta-line">{entry["meta"]}</div>', unsafe_allow_html=True)
 
 # ── Chat input ────────────────────────────────────────────
-user_input = st.chat_input("Ask anything — docs / general knowledge / research black holes ...")
+user_input = st.chat_input("Ask anything — upload docs to query them, or ask general questions...")
 
 if user_input:
     st.session_state.chat_history.append({"role": "user", "message": user_input})
     history_for_llm  = st.session_state.chat_history[:-1] if memory_on else []
 
-    start            = time.time()
-    has_docs         = "vector_db" in st.session_state
-    source_extracts  = []
-    chosen_sources   = []
-    answer           = ""
-    retrieval_method = ""
-    context_used     = ""
-    gemini_feedback  = ""
-    was_corrected    = False
-
-    past_mistake = healing_memory.find_similar_mistake(user_input)
-    lessons      = healing_memory.get_lessons()
+    start = time.time()
 
     with st.status("Thinking...", expanded=True) as status:
 
-        if past_mistake and past_mistake.get("verdict") in ["WRONG", "PARTIALLY_CORRECT"]:
-            st.write(f"⚠️ Similar past mistake found — applying correction...")
+        logger.info(f"Query: {user_input[:80]!r}")
+        result = run_inference(
+            query          = user_input,
+            llm            = llm,
+            llm_heavy      = llm_heavy,
+            session_state  = st.session_state,
+            memory_on      = memory_on,
+            forced_mode    = forced_mode,
+            use_hybrid     = use_hybrid,
+            progress_callback = st.write,
+        )
 
-        # ── Route ───────────────────────────────────────
-        st.write("🔀 Detecting query type...")
-        route = route_query(user_input, has_docs=has_docs, forced_mode=forced_mode)
-        if route == "needs_classification":
-            st.write("🧠 Classifying with LLM...")
-            route = route_with_llm(llm, user_input, has_docs=has_docs)
-        st.write(f"✅ Route → **{route.upper()}**")
-
-        import re as _re
-
-        # ── Research ─────────────────────────────────────
-        if route == "research":
-            if _re.search(r"\bresearch\b", user_input, _re.IGNORECASE):
-                clean_query, source_override = parse_user_source_override(user_input)
-                if not source_override:
-                    clean_query = extract_research_query(user_input)
-            else:
-                clean_query    = user_input
-                source_override = None
-
-            st.write(f"🧠 Picking sources for: *{clean_query}*")
-            chosen_sources = decide_sources(llm, clean_query, user_override=source_override)
-            st.write(f"📡 Sources: **{', '.join(s.upper() for s in chosen_sources)}**")
-
-            for src in chosen_sources:
-                st.write(f"🌐 Scraping **{src}**...")
-
-            result = run_research(clean_query, chosen_sources)
-
-            if result["error"]:
-                answer = f"⚠️ Research failed: {result['error']}"
-            else:
-                source_extracts = result.get("results", [])
-                context_used    = result.get("context", "")
-                st.write(f"✅ Scraped **{len(source_extracts)}** source(s)")
-                for r in source_extracts:
-                    st.write(f"  → {r['source'].upper()}: {len(r['content'])} chars")
-
-                if not context_used.strip():
-                    answer = "No content could be extracted from the sources."
-                else:
-                    # Pass scraped content through LLM for clean formatted answer
-                    st.write("✍️ Synthesizing with phi3...")
-                    synthesis_prompt = f"""You are a research assistant. Based on the web research below, answer the question clearly and thoroughly.
-
-FORMAT YOUR ANSWER AS:
-## [Topic Title]
-
-**Overview**
-2-3 sentence summary of who/what this is.
-
-**Key Facts**
-- Fact 1
-- Fact 2
-- Fact 3
-(include dates, numbers, important details)
-
-**Details**
-2-3 paragraphs expanding on the most important aspects.
-
-**Summary**
-One final paragraph wrapping up the key takeaways.
-
----
-QUESTION: {clean_query}
-
-RESEARCH DATA:
-{context_used[:6000]}
-
-Write a well-structured, informative answer based on the research above. Do not copy text verbatim — synthesize and explain clearly."""
-
-                    try:
-                        answer = llm.invoke(synthesis_prompt).content
-                    except Exception as e:
-                        # Fallback: use heavy model
-                        try:
-                            answer = llm_heavy.invoke(synthesis_prompt).content
-                        except Exception:
-                            answer = context_used[:3000]
-
-        # ── Web (legacy) ──────────────────────────────────
-        elif route == "web":
-            answer = handle_web_query(user_input)
-
-        # ── Calc ─────────────────────────────────────────
-        elif route == "calc":
-            st.write("🔢 Solving...")
-            history_str = format_history(history_for_llm, 2) if memory_on and history_for_llm else ""
-            prompt = "Solve step by step:\n"
-            if history_str:
-                prompt += f"\nHistory:\n{history_str}"
-            prompt += f"\nQuestion: {user_input}\nAnswer:"
-            answer = llm.invoke(prompt).content
-
-        # ── Chat ─────────────────────────────────────────
-        elif route == "chat":
-            answer = handle_chat_query(llm, user_input)
-
-        # ── General ──────────────────────────────────────
-        elif route == "general":
-            st.write("💡 Using phi3 knowledge...")
-            q = f"{user_input}\n\n[SYSTEM NOTE — {lessons}]" if lessons else user_input
-            answer = run_general_with_memory(llm, q, history_for_llm)
-
-        # ── RAG ──────────────────────────────────────────
-        else:
-            if use_hybrid and "hybrid_searcher" in st.session_state:
-                class HybridRetriever:
-                    def __init__(self, s): self.searcher = s
-                    def invoke(self, q):
-                        from config.settings import TOP_K_RETRIEVAL
-                        return self.searcher.search(q, top_k=TOP_K_RETRIEVAL)
-                retriever = HybridRetriever(st.session_state["hybrid_searcher"])
-                st.write("🔀 Using Hybrid Search (BM25 + Vector)")
-            else:
-                retriever = get_mmr_retriever(st.session_state["vector_db"])
-                st.write("🔢 Using MMR Vector Search")
-
-            doc_trees = st.session_state.get("doc_trees", None)
-            st.write("🔍 Retrieving context...")
-            st.write("✍️ Generating answer...")
-
-            result = run_rag_pipeline(
-                llm, retriever, user_input,
-                chat_history=history_for_llm,
-                document_trees=doc_trees,
-            )
-            answer, retrieval_method = result if isinstance(result, tuple) else (result, "vector")
-            st.write(f"✅ Retrieval: {retrieval_method}")
-
-        # ── Self-Healing ──────────────────────────────────
-        if healing_on and route in heal_routes and len(answer) > 20:
-            st.write("🔬 Sending to Gemini for validation...")
-            try:
-                heal_result     = self_heal(
-                    question        = user_input,
-                    original_answer = answer,
-                    memory          = healing_memory,
-                    context         = context_used[:500],
-                )
-                answer          = heal_result["final_answer"]
-                was_corrected   = heal_result["was_corrected"]
-                gemini_feedback = heal_result["gemini_said"]
-                verdict         = heal_result["verdict"]
-                accuracy        = heal_result["accuracy_score"]
-                label           = "✅ CORRECTED" if was_corrected else f"✅ Validated"
-                st.write(f"{label}: {verdict} ({accuracy}/10)")
-            except Exception as e:
-                st.write(f"⚠️ Self-healing error: {e}")
+        logger.info(f"Route: {result['route']} | Answer length: {len(result['answer'])} chars")
+        answer           = result["answer"]
+        route            = result["route"]
+        retrieval_method = result["retrieval_method"]
+        chosen_sources   = result["chosen_sources"]
+        source_extracts  = result["source_extracts"]
+        context_used     = result["context_used"]
 
         elapsed    = round(time.time() - start, 2)
         validation = validate_answer(answer)
         badge      = format_confidence_badge(validation["confidence"])
-        healed_tag = " ✨ HEALED" if was_corrected else ""
 
         status.update(
-            label=f"Done in {elapsed}s — {route.upper()}{healed_tag}",
+            label=f"Done in {elapsed}s — {route.upper()}",
             state="complete",
             expanded=False,
         )
@@ -463,8 +353,6 @@ Write a well-structured, informative answer based on the research above. Do not 
         parts.append(f"Retrieval: {retrieval_method}")
     if chosen_sources:
         parts.append(f"Sources: {' · '.join(s.upper() for s in chosen_sources)}")
-    if was_corrected:
-        parts.append("✨ CORRECTED BY GEMINI")
     parts.append(badge)
 
     st.session_state.chat_history.append({
@@ -472,7 +360,5 @@ Write a well-structured, informative answer based on the research above. Do not 
         "message":         answer,
         "source_extracts": source_extracts,
         "meta":            " &nbsp;|&nbsp; ".join(parts),
-        "was_corrected":   was_corrected,
-        "gemini_feedback": gemini_feedback,
     })
     st.rerun()

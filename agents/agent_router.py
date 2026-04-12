@@ -8,18 +8,7 @@ ROUTING_RULES = {
     "chat": ["hello", "hi there", "how are you", "who are you", "what can you do"],
 }
 
-CLASSIFY_PROMPT = """You are a query classifier.
-
-Decide if this question needs uploaded documents or general knowledge.
-
-Rules:
-- If it asks about a specific uploaded file, report, contract, paper → answer "rag"
-- If it is a general knowledge question (science, history, coding, facts) → answer "general"
-- If unsure → answer "general"
-
-Question: {query}
-
-Answer with ONLY one word, either "rag" or "general":"""
+from prompts.templates import CLASSIFY_PROMPT, GENERAL_PROMPT, CHAT_PROMPT, CALC_PROMPT
 
 
 def extract_research_query(query: str) -> str:
@@ -87,15 +76,10 @@ def handle_calc_query(llm, query: str) -> str:
 
 
 def handle_chat_query(llm, query: str) -> str:
-    return llm.invoke(f"You are a friendly AI assistant. Answer conversationally:\n\n{query}").content
+    prompt = CHAT_PROMPT.format(question=query)
+    return llm.invoke(prompt).content
 
 
 def handle_general_query(llm, query: str) -> str:
-    prompt = f"""You are a knowledgeable AI assistant.
-Answer this question clearly and accurately from your own knowledge.
-If you are not sure, say so honestly.
-
-Question: {query}
-
-Answer:"""
+    prompt = GENERAL_PROMPT.format(question=query)
     return llm.invoke(prompt).content

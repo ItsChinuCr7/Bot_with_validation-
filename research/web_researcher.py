@@ -36,16 +36,15 @@ GEMINI_WAIT_SECS   = 20
 PAGE_LOAD_TIMEOUT  = 10
 SCROLL_PAUSE       = 1.2
 
-ALL_SOURCES = ["duckduckgo", "wikipedia", "bing", "gemini"]
+ALL_SOURCES = ["duckduckgo", "wikipedia", "bing"]
 
 _SOURCE_PROMPT = """You are a research routing agent.
-Pick the best 2-3 sources for this query from: duckduckgo, wikipedia, bing, gemini
+Pick the best 2-3 sources for this query from: duckduckgo, wikipedia, bing
 
 Rules:
 - Factual/encyclopedic -> wikipedia
 - Current events / recent news -> duckduckgo, bing
-- Deep explanations / opinions / summaries -> gemini
-- Technical / coding -> duckduckgo, gemini
+- Technical / coding -> duckduckgo, bing
 - Simple well-known fact -> just wikipedia
 - Only use ALL if explicitly requested
 
@@ -60,7 +59,7 @@ Sources:"""
 def extract_research_query(query: str) -> str:
     """Strip 'research' keyword and source overrides to get clean topic."""
     clean = re.sub(r"\bresearch\b", "", query, flags=re.IGNORECASE)
-    clean = re.sub(r"\bon\s+(gemini|wikipedia|bing|duckduckgo|all)\b", "", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"\bon\s+(wikipedia|bing|duckduckgo|all)\b", "", clean, flags=re.IGNORECASE)
     clean = re.sub(r"\s+", " ", clean).strip(" ,:-")
     return clean if clean else query
 
@@ -71,7 +70,7 @@ def parse_user_source_override(query: str):
     "research on gemini quantum computing" -> ("quantum computing", "gemini")
     Returns (clean_query, override | None)
     """
-    m = re.search(r"research\s+on\s+(gemini|wikipedia|bing|duckduckgo|all)\s+(.+)", query, re.IGNORECASE)
+    m = re.search(r"research\s+on\s+(wikipedia|bing|duckduckgo|all)\s+(.+)", query, re.IGNORECASE)
     if m:
         return m.group(2).strip(), m.group(1).strip()
 
@@ -98,6 +97,9 @@ def decide_sources(llm, query: str, user_override: str = None) -> list:
     except Exception:
         return ["duckduckgo", "wikipedia"]
 
+
+import logging
+logger = logging.getLogger(__name__)
 
 # ── Browser setup ─────────────────────────────────────────
 
@@ -326,7 +328,7 @@ def run_research(query: str, sources: list) -> dict:
     """
     driver      = None
     all_results = []
-    headless    = "gemini" not in sources  # Gemini needs visible browser for login
+    headless    = True  # always headless now
 
     try:
         print(f"[Research] Launching Brave (headless={headless})...")
@@ -336,7 +338,6 @@ def run_research(query: str, sources: list) -> dict:
             "duckduckgo": _duckduckgo,
             "wikipedia":  _wikipedia,
             "bing":       _bing,
-            "gemini":     _gemini,
         }
 
         for source in sources:
