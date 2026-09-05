@@ -1,0 +1,236 @@
+2026-07-10 23:36:22 | INFO     | root | ============================================================
+2026-07-10 23:36:22 | INFO     | root | AI Document Intelligence Assistant — started
+2026-07-10 23:36:22 | INFO     | root | ============================================================
+2026-07-10 23:36:54 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-07-10 23:36:55 | INFO     | models.llm | Loading light LLM: gemma3:12b
+2026-07-10 23:36:55 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=light)
+2026-07-10 23:36:56 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-07-10 23:36:56 | INFO     | models.llm | Loading heavy LLM: gemma3:12b 
+2026-07-10 23:36:56 | INFO     | models.model_factory | Creating LLM: gemma3:12b  (mode=heavy)
+2026-07-10 23:36:57 | INFO     | models.base_llm | LLM loaded: gemma3:12b  | temp=0.7 | num_predict=4096
+2026-07-10 23:36:57 | INFO     | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-07-10 23:37:04 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:37:04 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-07-10 23:37:05 | INFO     | models.llm | Loading light LLM: gemma3:12b
+2026-07-10 23:37:05 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=light)
+2026-07-10 23:37:05 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-07-10 23:37:07 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:37:35 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:37:36 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:37:47 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:37:48 | INFO     | models.llm | Loading light LLM: llama3:8b-instruct-q4_0
+2026-07-10 23:37:48 | INFO     | models.model_factory | Creating LLM: llama3:8b-instruct-q4_0 (mode=light)
+2026-07-10 23:37:48 | INFO     | models.base_llm | LLM loaded: llama3:8b-instruct-q4_0 | temp=0.7 | num_predict=4096
+2026-07-10 23:37:51 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:37:55 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:37:57 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:38:04 | INFO     | ingestion.pdf_loader | PDF Loader: 1712552498-INDIAN_YEAR_BOOK_2024.pdf — 111 pages, 1003 tree nodes
+2026-07-10 23:38:04 | INFO     | processing.preprocessor | Preprocessor: cleaned 111 documents
+2026-07-10 23:38:04 | INFO     | processing.chunker | Chunker: 111 docs → 977 chunks (size=450, overlap=160)
+2026-07-10 23:38:04 | INFO     | ingestion.pdf_loader | PDF Loader: 977 chunks, 1 tree(s) ready
+2026-07-10 23:39:00 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:39:02 | INFO     | __main__ | Query: 'understand me the book. waht is context of this book. what is purpose of these k'
+2026-07-10 23:39:02 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-07-10 23:39:02 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-07-10 23:39:15 | INFO     | inference.inference_engine | ✅ Route → **GENERAL**
+2026-07-10 23:39:15 | INFO     | inference.inference_engine | 💡 Using LLM knowledge...
+2026-07-10 23:41:06 | INFO     | __main__ | Route: general | Answer length: 2859 chars
+2026-07-10 23:41:08 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:42:06 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-10 23:42:08 | INFO     | __main__ | Query: '1712552498-INDIAN_YEAR_BOOK_2024.pdf this book i ma taking about the uploaded on'
+2026-07-10 23:42:08 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-07-10 23:42:08 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-07-10 23:42:12 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-07-10 23:42:12 | INFO     | inference.inference_engine | 🔀 Using Hybrid Search (BM25 + Vector)
+2026-07-10 23:42:12 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-07-10 23:42:12 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-07-10 23:43:28 | INFO     | inference.inference_engine | ✅ Retrieval: vector
+2026-07-10 23:43:28 | INFO     | __main__ | Route: rag | Answer length: 1533 chars
+2026-07-10 23:43:30 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:00:16 | INFO     | root | ============================================================
+2026-07-12 09:00:16 | INFO     | root | AI Document Intelligence Assistant — started
+2026-07-12 09:00:16 | INFO     | root | ============================================================
+2026-07-12 09:00:16 | INFO     | mcp.server.lowlevel.server | Processing request of type ListToolsRequest
+2026-07-12 09:00:16 | INFO     | mcp.server.lowlevel.server | Processing request of type ListPromptsRequest
+2026-07-12 09:00:16 | INFO     | mcp.server.lowlevel.server | Processing request of type ListResourcesRequest
+2026-07-12 09:02:07 | INFO     | root | ============================================================
+2026-07-12 09:02:07 | INFO     | root | AI Document Intelligence Assistant — started
+2026-07-12 09:02:07 | INFO     | root | ============================================================
+2026-07-12 09:02:32 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-07-12 09:02:34 | INFO     | models.llm | Loading light LLM: gemma3:12b
+2026-07-12 09:02:34 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=light)
+2026-07-12 09:02:35 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-07-12 09:02:35 | INFO     | models.llm | Loading heavy LLM: gemma3:12b 
+2026-07-12 09:02:35 | INFO     | models.model_factory | Creating LLM: gemma3:12b  (mode=heavy)
+2026-07-12 09:02:36 | INFO     | models.base_llm | LLM loaded: gemma3:12b  | temp=0.7 | num_predict=4096
+2026-07-12 09:02:36 | INFO     | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-07-12 09:02:45 | WARNING  | models.model_factory | Could not reach Ollama API: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/tags (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001CD06708B90>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2026-07-12 09:02:45 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-07-12 09:02:45 | INFO     | models.llm | Loading light LLM: gemma3:12b
+2026-07-12 09:02:45 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=light)
+2026-07-12 09:02:46 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-07-12 09:02:50 | WARNING  | models.model_factory | Could not reach Ollama API: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/tags (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001CD0670BB60>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2026-07-12 09:03:51 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:03:53 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:12:46 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:12:54 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:12:57 | INFO     | ingestion.pdf_loader | PDF Loader: Einstein_Relativity.pdf — 178 pages, 7732 tree nodes
+2026-07-12 09:12:57 | INFO     | processing.preprocessor | Preprocessor: dropped 1 empty/short chunks
+2026-07-12 09:12:57 | INFO     | processing.preprocessor | Preprocessor: cleaned 177 documents
+2026-07-12 09:12:57 | INFO     | processing.chunker | Chunker: 177 docs → 628 chunks (size=450, overlap=160)
+2026-07-12 09:12:57 | INFO     | ingestion.pdf_loader | PDF Loader: 628 chunks, 1 tree(s) ready
+2026-07-12 09:13:41 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:13:43 | INFO     | __main__ | Query: 'tell me bout the loaded book.'
+2026-07-12 09:13:43 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-07-12 09:13:43 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-07-12 09:13:48 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-07-12 09:13:48 | INFO     | inference.inference_engine | 🔀 Using Hybrid Search (BM25 + Vector)
+2026-07-12 09:13:48 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-07-12 09:13:48 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-07-12 09:14:19 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:14:19 | INFO     | models.llm | Loading light LLM: llama3:8b
+2026-07-12 09:14:19 | INFO     | models.model_factory | Creating LLM: llama3:8b (mode=light)
+2026-07-12 09:14:20 | INFO     | models.base_llm | LLM loaded: llama3:8b | temp=0.7 | num_predict=4096
+2026-07-12 09:14:22 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:14:26 | INFO     | ingestion.pdf_loader | PDF Loader: Einstein_Relativity.pdf — 178 pages, 7732 tree nodes
+2026-07-12 09:14:26 | INFO     | processing.preprocessor | Preprocessor: dropped 1 empty/short chunks
+2026-07-12 09:14:26 | INFO     | processing.preprocessor | Preprocessor: cleaned 177 documents
+2026-07-12 09:14:26 | INFO     | processing.chunker | Chunker: 177 docs → 628 chunks (size=450, overlap=160)
+2026-07-12 09:14:26 | INFO     | ingestion.pdf_loader | PDF Loader: 628 chunks, 1 tree(s) ready
+2026-07-12 09:14:55 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-07-12 09:14:57 | INFO     | __main__ | Query: 'tell me bout the loaded book.\n'
+2026-07-12 09:14:57 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-07-12 09:14:57 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-07-12 09:15:09 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-07-12 09:15:09 | INFO     | inference.inference_engine | 🔀 Using Hybrid Search (BM25 + Vector)
+2026-07-12 09:15:09 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-07-12 09:15:09 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-07-12 09:16:41 | INFO     | inference.inference_engine | ✅ Retrieval: hybrid (tree + vector)
+2026-07-12 09:16:41 | INFO     | __main__ | Route: rag | Answer length: 1103 chars
+2026-07-12 09:16:44 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:23:26 | INFO     | root | ============================================================
+2026-08-12 23:23:26 | INFO     | root | AI Document Intelligence Assistant — started
+2026-08-12 23:23:26 | INFO     | root | ============================================================
+2026-08-12 23:23:26 | INFO     | mcp.server.lowlevel.server | Processing request of type ListToolsRequest
+2026-08-12 23:23:26 | INFO     | mcp.server.lowlevel.server | Processing request of type ListPromptsRequest
+2026-08-12 23:23:26 | INFO     | mcp.server.lowlevel.server | Processing request of type ListResourcesRequest
+2026-08-12 23:24:16 | INFO     | mcp.server.lowlevel.server | Processing request of type CallToolRequest
+2026-08-12 23:28:48 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-08-12 23:28:50 | INFO     | models.llm | Loading light LLM: gemma3:12b
+2026-08-12 23:28:50 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=light)
+2026-08-12 23:28:52 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-08-12 23:31:45 | INFO     | mcp.server.lowlevel.server | Processing request of type CallToolRequest
+2026-08-12 23:35:33 | INFO     | root | ============================================================
+2026-08-12 23:35:33 | INFO     | root | AI Document Intelligence Assistant — started
+2026-08-12 23:35:33 | INFO     | root | ============================================================
+2026-08-12 23:35:51 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-08-12 23:35:52 | INFO     | models.llm | Loading light LLM: gemma3:12b
+2026-08-12 23:35:52 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=light)
+2026-08-12 23:35:53 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-08-12 23:35:53 | INFO     | models.llm | Loading heavy LLM: gemma3:12b 
+2026-08-12 23:35:53 | INFO     | models.model_factory | Creating LLM: gemma3:12b  (mode=heavy)
+2026-08-12 23:35:54 | INFO     | models.base_llm | LLM loaded: gemma3:12b  | temp=0.7 | num_predict=4096
+2026-08-12 23:35:54 | INFO     | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-08-12 23:36:01 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:36:01 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-08-12 23:36:01 | INFO     | models.llm | Loading light LLM: gemma3:12b
+2026-08-12 23:36:01 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=light)
+2026-08-12 23:36:02 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-08-12 23:36:04 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:39:03 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:39:34 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:40:07 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:40:10 | INFO     | __main__ | Query: 'explain in short , what is use or scope of writing sucha  book'
+2026-08-12 23:40:10 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-08-12 23:40:10 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-08-12 23:40:15 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-08-12 23:40:15 | INFO     | inference.inference_engine | 🔢 Using MMR Vector Search
+2026-08-12 23:40:15 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-08-12 23:40:15 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-08-12 23:41:46 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:41:47 | INFO     | models.llm | Loading light LLM: llama3:8b
+2026-08-12 23:41:47 | INFO     | models.model_factory | Creating LLM: llama3:8b (mode=light)
+2026-08-12 23:41:47 | INFO     | models.base_llm | LLM loaded: llama3:8b | temp=0.7 | num_predict=4096
+2026-08-12 23:41:49 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:41:58 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:42:05 | INFO     | ingestion.pdf_loader | PDF Loader: 1712552498-INDIAN_YEAR_BOOK_2024.pdf — 111 pages, 1003 tree nodes
+2026-08-12 23:42:05 | INFO     | processing.preprocessor | Preprocessor: cleaned 111 documents
+2026-08-12 23:42:05 | INFO     | processing.chunker | Chunker: 111 docs → 977 chunks (size=450, overlap=160)
+2026-08-12 23:42:05 | INFO     | ingestion.pdf_loader | PDF Loader: 977 chunks, 1 tree(s) ready
+2026-08-12 23:42:58 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-08-12 23:43:00 | INFO     | __main__ | Query: 'explain in short , what is use or scope of writing sucha book\n'
+2026-08-12 23:43:00 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-08-12 23:43:00 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-08-12 23:43:11 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-08-12 23:43:11 | INFO     | inference.inference_engine | 🔀 Using Hybrid Search (BM25 + Vector)
+2026-08-12 23:43:11 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-08-12 23:43:11 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-08-12 23:43:50 | INFO     | inference.inference_engine | ✅ Retrieval: vector
+2026-08-12 23:43:50 | INFO     | __main__ | Route: rag | Answer length: 458 chars
+2026-08-12 23:43:52 | INFO     | models.model_factory | Model factory: found 5 Ollama models
+2026-09-05 19:50:39 | INFO     | root | ============================================================
+2026-09-05 19:50:39 | INFO     | root | AI Document Intelligence Assistant — started
+2026-09-05 19:50:39 | INFO     | root | ============================================================
+2026-09-05 19:50:39 | INFO     | mcp.server.lowlevel.server | Processing request of type ListToolsRequest
+2026-09-05 19:50:39 | INFO     | mcp.server.lowlevel.server | Processing request of type ListPromptsRequest
+2026-09-05 19:50:39 | INFO     | mcp.server.lowlevel.server | Processing request of type ListResourcesRequest
+2026-09-05 19:51:45 | INFO     | root | ============================================================
+2026-09-05 19:51:45 | INFO     | root | AI Document Intelligence Assistant — started
+2026-09-05 19:51:45 | INFO     | root | ============================================================
+2026-09-05 19:51:45 | INFO     | mcp.server.lowlevel.server | Processing request of type ListToolsRequest
+2026-09-05 19:51:45 | INFO     | mcp.server.lowlevel.server | Processing request of type ListPromptsRequest
+2026-09-05 19:51:45 | INFO     | mcp.server.lowlevel.server | Processing request of type ListResourcesRequest
+2026-09-05 19:53:05 | INFO     | root | ============================================================
+2026-09-05 19:53:05 | INFO     | root | AI Document Intelligence Assistant — started
+2026-09-05 19:53:05 | INFO     | root | ============================================================
+2026-09-05 19:53:07 | INFO     | root | ============================================================
+2026-09-05 19:53:07 | INFO     | root | AI Document Intelligence Assistant — started
+2026-09-05 19:53:07 | INFO     | root | ============================================================
+2026-09-05 19:53:07 | INFO     | mcp.server.lowlevel.server | Processing request of type ListToolsRequest
+2026-09-05 19:53:07 | INFO     | mcp.server.lowlevel.server | Processing request of type ListPromptsRequest
+2026-09-05 19:53:07 | INFO     | mcp.server.lowlevel.server | Processing request of type ListResourcesRequest
+2026-09-05 22:37:17 | INFO     | root | ============================================================
+2026-09-05 22:37:17 | INFO     | root | AI Document Intelligence Assistant — started
+2026-09-05 22:37:17 | INFO     | root | ============================================================
+2026-09-05 22:37:42 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-09-05 22:37:44 | INFO     | models.llm | Loading light LLM: qwen2.5:7b
+2026-09-05 22:37:44 | INFO     | models.model_factory | Creating LLM: qwen2.5:7b (mode=light)
+2026-09-05 22:37:45 | INFO     | models.base_llm | LLM loaded: qwen2.5:7b | temp=0.7 | num_predict=4096
+2026-09-05 22:37:45 | INFO     | models.llm | Loading heavy LLM: qwen2.5:7b
+2026-09-05 22:37:45 | INFO     | models.model_factory | Creating LLM: qwen2.5:7b (mode=heavy)
+2026-09-05 22:37:46 | INFO     | models.base_llm | LLM loaded: qwen2.5:7b | temp=0.7 | num_predict=4096
+2026-09-05 22:37:49 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-09-05 22:37:49 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-09-05 22:37:49 | INFO     | models.llm | Loading light LLM: qwen2.5:7b
+2026-09-05 22:37:49 | INFO     | models.model_factory | Creating LLM: qwen2.5:7b (mode=light)
+2026-09-05 22:37:50 | INFO     | models.base_llm | LLM loaded: qwen2.5:7b | temp=0.7 | num_predict=4096
+2026-09-05 22:37:52 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-09-05 22:38:13 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-09-05 22:38:14 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-09-05 22:39:55 | INFO     | root | ============================================================
+2026-09-05 22:39:55 | INFO     | root | AI Document Intelligence Assistant — started
+2026-09-05 22:39:55 | INFO     | root | ============================================================
+2026-09-05 22:40:13 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-09-05 22:40:14 | INFO     | models.llm | Loading light LLM: qwen2.5:7b
+2026-09-05 22:40:14 | INFO     | models.model_factory | Creating LLM: qwen2.5:7b (mode=light)
+2026-09-05 22:40:15 | INFO     | models.base_llm | LLM loaded: qwen2.5:7b | temp=0.7 | num_predict=4096
+2026-09-05 22:40:15 | INFO     | models.llm | Loading heavy LLM: qwen2.5:7b
+2026-09-05 22:40:15 | INFO     | models.model_factory | Creating LLM: qwen2.5:7b (mode=heavy)
+2026-09-05 22:40:15 | INFO     | models.base_llm | LLM loaded: qwen2.5:7b | temp=0.7 | num_predict=4096
+2026-09-05 22:40:18 | INFO     | models.model_factory | Model factory: found 2 Ollama models
+2026-09-05 22:40:18 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-09-05 22:40:19 | INFO     | models.llm | Loading light LLM: qwen2.5:7b
+2026-09-05 22:40:19 | INFO     | models.model_factory | Creating LLM: qwen2.5:7b (mode=light)
+2026-09-05 22:40:19 | INFO     | models.base_llm | LLM loaded: qwen2.5:7b | temp=0.7 | num_predict=4096
+2026-09-05 22:40:21 | INFO     | models.model_factory | Model factory: found 2 Ollama models

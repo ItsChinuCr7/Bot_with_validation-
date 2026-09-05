@@ -6,7 +6,7 @@ from config.logging_config import setup_logging
 setup_logging("INFO")
 logger = logging.getLogger(__name__)
 
-from models.llm import load_llm, load_llm_heavy, reload_llm
+from models.llm import load_llm, load_llm_heavy
 from models.model_factory import get_available_models, get_model_info
 from models.embeddings import load_embeddings
 from ingestion.pdf_loader import load_and_split_pdfs
@@ -18,7 +18,7 @@ from inference.inference_engine import run_inference
 from data.cache.cache_manager import get_cache_stats, clear_cache
 from agents.agent_router import (
     route_query, route_with_llm,
-    handle_web_query, handle_calc_query, handle_chat_query,
+    handle_web_query, handle_chat_query,
 )
 from research.web_researcher import (
     decide_sources, parse_user_source_override,
@@ -179,7 +179,8 @@ with st.sidebar:
 
                 # ── Step 3: Vector Index ───────────────────────
                 st.write("🔢 **Step 3/4** — Building FAISS vector index...")
-                st.caption(f"  Embedding {len(chunks)} chunks with BAAI/bge-small-en-v1.5 — this is the slow part, please wait...")
+                from config.settings import EMBEDDING_MODEL
+                st.caption(f"  Embedding {len(chunks)} chunks with {EMBEDDING_MODEL} — processing vectors...")
                 prog.progress(50, text=f"Embedding chunks (0/{len(chunks)})...")
 
                 # Batch progress simulation during embedding
@@ -221,13 +222,13 @@ with st.sidebar:
     st.markdown("**🎯 Answer Mode**")
     answer_mode = st.radio(
         label="answer_mode_radio",
-        options=["🤖 Auto (smart detect)", "💡 General (phi3)", "📄 RAG (documents)"],
+        options=["🤖 Auto (smart detect)", "💡 General (LLM Knowledge)", "📄 RAG (documents)"],
         index=0,
         label_visibility="collapsed",
     )
     mode_map = {
         "🤖 Auto (smart detect)": None,
-        "💡 General (phi3)":      "general",
+        "💡 General (LLM Knowledge)": "general",
         "📄 RAG (documents)":     "rag",
     }
     forced_mode = mode_map[answer_mode]

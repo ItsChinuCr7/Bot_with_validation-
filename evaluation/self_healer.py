@@ -10,22 +10,21 @@ import os
 import re
 import time
 from datetime import datetime
+import logging
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+logger = logging.getLogger(__name__)
 
-MEMORY_FILE = "self_healing_memory.json"
+MEMORY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "self_healing_memory.json")
 WAIT_SECS   = 60
 MIN_WAIT    = 20
 
-BRAVE_PATH = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-DEBUG_PORT  = "127.0.0.1:9222"
+# Portable Brave browser path fallback
+BRAVE_PATH = os.getenv(
+    "BRAVE_PATH",
+    r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+    if os.name == "nt" else "/usr/bin/brave-browser"
+)
+DEBUG_PORT  = os.getenv("BRAVE_DEBUG_PORT", "127.0.0.1:9222")
 
 VALIDATION_PROMPT = """You are an AI answer validator.
 

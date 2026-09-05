@@ -1,0 +1,37 @@
+﻿{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Streamlit App",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": [
+                "run",
+                "${workspaceFolder}/app.py"
+            ],
+            "justMyCode": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Pytest Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "-v",
+                "${workspaceFolder}/tests"
+            ],
+            "justMyCode": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "MCP Server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/mcp_server.py",
+            "justMyCode": true,
+            "console": "integratedTerminal"
+        }
+    ]
+}

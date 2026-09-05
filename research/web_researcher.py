@@ -1,42 +1,41 @@
 # ============================================================
 # research/web_researcher.py
 #
-# Selenium-based web researcher using Brave browser
+# High-efficiency, fast HTTP-based web researcher.
+# Replaces slow Selenium browser spawns with fast, multithreaded
+# HTTP requests via requests + BeautifulSoup.
 #
 # Sources:
-#   duckduckgo  → search + scrape top result pages
-#   wikipedia   → direct article scrape
-#   bing        → additional results
-#   gemini      → opens Gemini in YOUR Brave (already logged in)
-#
-# Smart routing: LLM auto-picks sources per query
-# User override: "research on gemini ..." / "research on all ..."
+#   duckduckgo  -> fast HTML instant search + scrape
+#   wikipedia   -> direct Wikipedia API / page fetch
+#   bing        -> search results + article scrape
 # ============================================================
 
 import re
-import time
-from urllib.parse import quote_plus
-
+import html
+import logging
+from urllib.parse import quote_plus, unquote
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 
-# ── Config ────────────────────────────────────────────────
-BRAVE_PATH        = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-BRAVE_PROFILE_DIR = r"C:\Users\chinm\AppData\Local\BraveSoftware\Brave-Browser\User Data"
+logger = logging.getLogger(__name__)
 
 MAX_CHARS_PER_PAGE = 3000
-GEMINI_WAIT_SECS   = 20
-PAGE_LOAD_TIMEOUT  = 10
-SCROLL_PAUSE       = 1.2
+PAGE_TIMEOUT = 6
+MAX_WORKERS = 4
 
 ALL_SOURCES = ["duckduckgo", "wikipedia", "bing"]
+
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
 
 _SOURCE_PROMPT = """You are a research routing agent.
 Pick the best 2-3 sources for this query from: duckduckgo, wikipedia, bing
@@ -54,7 +53,7 @@ Query: {query}
 Sources:"""
 
 
-# ── Public helpers (imported by app.py) ──────────────────
+# ── Query Cleaners and Parsers ─────────────────────────────
 
 def extract_research_query(query: str) -> str:
     """Strip 'research' keyword and source overrides to get clean topic."""
@@ -67,8 +66,7 @@ def extract_research_query(query: str) -> str:
 def parse_user_source_override(query: str):
     """
     Detect if user specified a source override.
-    "research on gemini quantum computing" -> ("quantum computing", "gemini")
-    Returns (clean_query, override | None)
+    e.g. "research on wikipedia quantum computing" -> ("quantum computing", "wikipedia")
     """
     m = re.search(r"research\s+on\s+(wikipedia|bing|duckduckgo|all)\s+(.+)", query, re.IGNORECASE)
     if m:
@@ -91,287 +89,212 @@ def decide_sources(llm, query: str, user_override: str = None) -> list:
         if matched:
             return matched
     try:
-        raw     = llm.invoke(_SOURCE_PROMPT.format(query=query)).content.strip().lower()
+        raw = llm.invoke(_SOURCE_PROMPT.format(query=query)).content.strip().lower()
         sources = [s.strip() for s in raw.split(",") if s.strip() in ALL_SOURCES]
         return sources if sources else ["duckduckgo", "wikipedia"]
     except Exception:
         return ["duckduckgo", "wikipedia"]
 
 
-import logging
-logger = logging.getLogger(__name__)
+# ── Text & HTML Extraction ─────────────────────────────────
 
-# ── Browser setup ─────────────────────────────────────────
-
-def _build_driver(headless: bool = True) -> webdriver.Chrome:
-    options = Options()
-    options.binary_location = BRAVE_PATH
-
-    if headless:
-        options.add_argument("--headless=new")
-
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1280,900")
-    options.add_argument("--log-level=3")
-    options.add_argument("--mute-audio")
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    )
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    # Use a fresh temp session every time - avoids "profile locked" if Brave is open
-    import tempfile, os as _os
-    _tmp = _os.path.join(tempfile.gettempdir(), "brave_research_tmp")
-    _os.makedirs(_tmp, exist_ok=True)
-    options.add_argument(f"--user-data-dir={_tmp}")
-    service = Service(ChromeDriverManager().install())
-    driver  = webdriver.Chrome(service=service, options=options)
-    driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT)
-    return driver
-
-
-# ── Text extraction ───────────────────────────────────────
-
-def _extract(html: str) -> str:
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form", "iframe", "noscript"]):
+def _extract_text_from_html(html_content: str) -> str:
+    """Extract clean readable text and tables from HTML."""
+    if not html_content:
+        return ""
+    soup = BeautifulSoup(html_content, "html.parser")
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form", "iframe", "noscript", "svg"]):
         tag.decompose()
+
     parts = []
     for table in soup.find_all("table"):
-        rows  = table.find_all("tr")
+        rows = table.find_all("tr")
         lines = []
         for row in rows:
             cells = row.find_all(["td", "th"])
-            line  = " | ".join(c.get_text(strip=True) for c in cells)
+            line = " | ".join(c.get_text(strip=True) for c in cells)
             if line.strip():
                 lines.append(line)
         if lines:
             parts.append("[TABLE]\n" + "\n".join(lines) + "\n[/TABLE]")
         table.decompose()
-    text = soup.get_text(separator=" ", strip=True)
+
+    main_el = soup.find("article") or soup.find("main") or soup.find("body") or soup
+    text = main_el.get_text(separator=" ", strip=True)
     text = re.sub(r"\s+", " ", text).strip()
     if text:
         parts.append(text)
-    return "\n\n".join(parts)[:MAX_CHARS_PER_PAGE]
+
+    full = "\n\n".join(parts)
+    return full[:MAX_CHARS_PER_PAGE]
 
 
-def _get(driver, url: str) -> str:
+def _fetch_url_content(url: str, timeout: int = PAGE_TIMEOUT) -> str:
+    """Fetch URL body content via fast HTTP GET."""
     try:
-        driver.get(url)
-        time.sleep(SCROLL_PAUSE)
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
-        time.sleep(0.4)
-        return driver.page_source
-    except Exception:
-        return ""
-
-
-# ── Source scrapers ───────────────────────────────────────
-
-def _duckduckgo(driver, query: str) -> list:
-    results = []
-    try:
-        driver.get(f"https://duckduckgo.com/?q={quote_plus(query)}&ia=web")
-        time.sleep(2.5)
-        links = driver.find_elements(By.CSS_SELECTOR, "a[data-testid='result-title-a']")
-        if not links:
-            links = driver.find_elements(By.CSS_SELECTOR, "article h2 a")
-        urls = []
-        for a in links[:4]:
-            href = a.get_attribute("href")
-            if href and href.startswith("http") and "duckduckgo.com" not in href:
-                urls.append(href)
-        for url in urls[:2]:
-            html = _get(driver, url)
-            if html:
-                text = _extract(html)
-                if len(text) > 150:
-                    results.append({"source": "duckduckgo", "url": url, "content": text})
+        resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=timeout)
+        if resp.status_code == 200:
+            return _extract_text_from_html(resp.text)
     except Exception as e:
-        print(f"[DDG] {e}")
-    return results
+        logger.debug(f"Failed to fetch {url}: {e}")
+    return ""
 
 
-def _wikipedia(driver, query: str) -> list:
+# ── Scrapers ───────────────────────────────────────────────
+
+def _duckduckgo_search(query: str, max_results: int = 2) -> list:
+    """Fast DuckDuckGo search using HTML endpoint."""
     results = []
     try:
-        driver.get(f"https://en.wikipedia.org/wiki/Special:Search?search={quote_plus(query)}")
-        time.sleep(2)
-        urls = []
-        if "/wiki/" in driver.current_url and "Special:Search" not in driver.current_url:
-            urls.append(driver.current_url)
-        else:
-            for a in driver.find_elements(By.CSS_SELECTOR, ".mw-search-result-heading a")[:2]:
-                href = a.get_attribute("href")
-                if href:
+        url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
+        resp = requests.post(url, data={"q": query}, headers=DEFAULT_HEADERS, timeout=PAGE_TIMEOUT)
+        if resp.status_code != 200:
+            resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=PAGE_TIMEOUT)
+
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            links = soup.find_all("a", class_="result__url")
+            urls = []
+            for a in links:
+                href = a.get("href", "")
+                if "uddg=" in href:
+                    raw_url = href.split("uddg=")[-1].split("&")[0]
+                    target_url = unquote(raw_url)
+                    if target_url.startswith("http") and "duckduckgo.com" not in target_url:
+                        urls.append(target_url)
+                elif href.startswith("http") and "duckduckgo.com" not in href:
                     urls.append(href)
-        for url in urls[:2]:
-            html = _get(driver, url)
-            if html:
-                text = _extract(html)
-                if len(text) > 150:
-                    results.append({"source": "wikipedia", "url": url, "content": text})
+
+            with ThreadPoolExecutor(max_workers=max_results) as executor:
+                future_to_url = {executor.submit(_fetch_url_content, u): u for u in urls[:max_results]}
+                for future in as_completed(future_to_url):
+                    u = future_to_url[future]
+                    content = future.result()
+                    if content and len(content) > 120:
+                        results.append({"source": "duckduckgo", "url": u, "content": content})
     except Exception as e:
-        print(f"[Wiki] {e}")
+        logger.warning(f"DuckDuckGo search error: {e}")
     return results
 
 
-def _bing(driver, query: str) -> list:
+def _wikipedia_search(query: str, max_results: int = 2) -> list:
+    """Direct Wikipedia API search + fetch."""
     results = []
     try:
-        driver.get(f"https://www.bing.com/search?q={quote_plus(query)}")
-        time.sleep(2)
-        urls = []
-        for a in driver.find_elements(By.CSS_SELECTOR, "li.b_algo h2 a")[:3]:
-            href = a.get_attribute("href")
-            if href and href.startswith("http") and "bing.com" not in href:
-                urls.append(href)
-        for url in urls[:2]:
-            html = _get(driver, url)
-            if html:
-                text = _extract(html)
-                if len(text) > 150:
-                    results.append({"source": "bing", "url": url, "content": text})
+        api_url = (
+            f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={quote_plus(query)}"
+            f"&utf8=&format=json&srlimit={max_results}"
+        )
+        resp = requests.get(api_url, headers=DEFAULT_HEADERS, timeout=PAGE_TIMEOUT)
+        if resp.status_code == 200:
+            data = resp.json()
+            search_items = data.get("query", {}).get("search", [])
+            for item in search_items:
+                title = item.get("title")
+                snippet = html.unescape(re.sub(r"<[^>]+>", "", item.get("snippet", "")))
+                page_url = f"https://en.wikipedia.org/wiki/{quote_plus(title.replace(' ', '_'))}"
+                
+                full_content = _fetch_url_content(page_url)
+                content = full_content if len(full_content) > 200 else f"{title}\n{snippet}"
+                results.append({"source": "wikipedia", "url": page_url, "content": content})
     except Exception as e:
-        print(f"[Bing] {e}")
+        logger.warning(f"Wikipedia search error: {e}")
     return results
 
 
-def _gemini(driver, query: str) -> list:
+def _bing_search(query: str, max_results: int = 2) -> list:
+    """Bing search scraper."""
     results = []
     try:
-        driver.get("https://gemini.google.com/app")
-        time.sleep(5)
-        input_box = None
-        for sel in [
-            "rich-textarea div[contenteditable='true']",
-            "div[contenteditable='true']",
-            "div.ql-editor",
-            "textarea",
-        ]:
-            try:
-                input_box = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, sel))
-                )
-                if input_box:
-                    break
-            except Exception:
-                continue
-        if not input_box:
-            print("[Gemini] Input box not found")
-            return results
+        url = f"https://www.bing.com/search?q={quote_plus(query)}"
+        resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=PAGE_TIMEOUT)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            links = soup.select("li.b_algo h2 a")
+            urls = []
+            for a in links:
+                href = a.get("href", "")
+                if href.startswith("http") and "bing.com" not in href and "microsoft.com" not in href:
+                    urls.append(href)
 
-        input_box.click()
-        time.sleep(0.5)
-        input_box.send_keys(query)
-        time.sleep(0.5)
-        input_box.send_keys(Keys.RETURN)
-        print(f"[Gemini] Waiting {GEMINI_WAIT_SECS}s...")
-        time.sleep(GEMINI_WAIT_SECS)
-
-        response_text = ""
-        for sel in [
-            "div.response-container-content",
-            "div.model-response-text",
-            "message-content div.markdown",
-            "div[class*='response-content']",
-            "div.presented-response-container",
-        ]:
-            try:
-                els = driver.find_elements(By.CSS_SELECTOR, sel)
-                if els:
-                    text = els[-1].text.strip()
-                    if len(text) > 50:
-                        response_text = text
-                        break
-            except Exception:
-                continue
-
-        if not response_text:
-            try:
-                paras = driver.find_elements(By.CSS_SELECTOR, "p[data-path-to-node]")
-                response_text = " ".join(p.text for p in paras if p.text.strip())
-            except Exception:
-                pass
-
-        if response_text:
-            print(f"[Gemini] Extracted {len(response_text)} chars")
-            results.append({
-                "source":  "gemini",
-                "url":     "https://gemini.google.com/app",
-                "content": response_text[:MAX_CHARS_PER_PAGE],
-            })
-        else:
-            print("[Gemini] No response found")
+            with ThreadPoolExecutor(max_workers=max_results) as executor:
+                future_to_url = {executor.submit(_fetch_url_content, u): u for u in urls[:max_results]}
+                for future in as_completed(future_to_url):
+                    u = future_to_url[future]
+                    content = future.result()
+                    if content and len(content) > 120:
+                        results.append({"source": "bing", "url": u, "content": content})
     except Exception as e:
-        print(f"[Gemini] {e}")
+        logger.warning(f"Bing search error: {e}")
     return results
 
 
-# ── Main entry point ──────────────────────────────────────
+# ── Main Entry Point ───────────────────────────────────────
 
 def run_research(query: str, sources: list) -> dict:
     """
-    Run research across all requested sources.
+    Run high-efficiency parallel research across requested sources.
 
-    Returns dict with keys:
-        results      → list of {source, url, content}
-        context      → combined text for LLM
-        final_answer → same as context (used by app.py)
-        sources      → list of URLs scraped
-        error        → str or None
+    Returns:
+        {
+            "results": list of {source, url, content},
+            "context": str (combined text),
+            "final_answer": str,
+            "sources": list of URLs,
+            "error": str or None
+        }
     """
-    driver      = None
+    scraper_map = {
+        "duckduckgo": _duckduckgo_search,
+        "wikipedia":  _wikipedia_search,
+        "bing":       _bing_search,
+    }
+
     all_results = []
-    headless    = True  # always headless now
+    clean_query = extract_research_query(query)
 
     try:
-        print(f"[Research] Launching Brave (headless={headless})...")
-        driver = _build_driver(headless=headless)
+        logger.info(f"Running high-efficiency research on sources: {sources}")
+        with ThreadPoolExecutor(max_workers=min(len(sources), MAX_WORKERS)) as executor:
+            future_to_source = {}
+            for src in sources:
+                if src in scraper_map:
+                    future_to_source[executor.submit(scraper_map[src], clean_query)] = src
 
-        scraper_map = {
-            "duckduckgo": _duckduckgo,
-            "wikipedia":  _wikipedia,
-            "bing":       _bing,
-        }
-
-        for source in sources:
-            if source in scraper_map:
-                print(f"[Research] → {source.upper()}")
-                all_results.extend(scraper_map[source](driver, query))
+            for future in as_completed(future_to_source):
+                try:
+                    res = future.result()
+                    if res:
+                        all_results.extend(res)
+                except Exception as e:
+                    logger.warning(f"Scraper error: {e}")
 
         if not all_results:
             return {
-                "results": [], "context": "", "final_answer": "",
+                "results": [],
+                "context": "",
+                "final_answer": "",
                 "sources": [],
                 "error": "No content found. Try rephrasing or choosing different sources.",
             }
 
-        parts    = [f"[{r['source'].upper()} — {r['url']}]\n{r['content']}" for r in all_results]
+        parts = [f"[{r['source'].upper()} — {r['url']}]\n{r['content']}" for r in all_results]
         combined = "\n\n---\n\n".join(parts)
 
         return {
-            "results":      all_results,
-            "context":      combined,
+            "results": all_results,
+            "context": combined,
             "final_answer": combined,
-            "sources":      [r["url"] for r in all_results],
-            "error":        None,
+            "sources": [r["url"] for r in all_results],
+            "error": None,
         }
 
     except Exception as e:
+        logger.error(f"Research pipeline error: {e}")
         return {
-            "results": [], "context": "", "final_answer": "",
-            "sources": [], "error": f"Research failed: {e}",
+            "results": [],
+            "context": "",
+            "final_answer": "",
+            "sources": [],
+            "error": f"Research failed: {e}",
         }
-
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except Exception:
-                pass

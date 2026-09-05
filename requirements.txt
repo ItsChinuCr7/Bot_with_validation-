@@ -6,5 +6,11 @@ langchain-huggingface
 langchain-text-splitters
 faiss-cpu
 sentence-transformers
-rank_bm25
+rank-bm25
+pymupdf
 pypdf
+requests
+beautifulsoup4
+fastmcp
+pytest
+numpy
