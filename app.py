@@ -16,6 +16,7 @@ from retrieval.vector_store import create_vector_store, load_vector_store
 from retrieval.retriever import get_mmr_retriever
 from retrieval.hybrid_search import HybridSearcher
 from reasoning.rag_pipeline import run_rag_pipeline, run_general_with_memory, format_history
+from reasoning.context_builder import format_source_citations
 from inference.inference_engine import run_inference
 from guardrails.input_validator import (
     SAFE_BLOCKED_RESPONSE,
@@ -348,6 +349,10 @@ for entry in st.session_state.chat_history:
         bubble = "bot-bubble"
         safe_message = html.escape(entry["message"]).replace("\n", "<br>")
         st.markdown(f'<div class="{bubble}">{safe_message}</div>', unsafe_allow_html=True)
+        if entry.get("route") == "rag":
+            citations = format_source_citations(entry.get("source_chunks", []))
+            if citations:
+                st.text(citations)
 
         if entry.get("source_extracts"):
             with st.expander(f"📄 View {len(entry['source_extracts'])} scraped source(s)"):

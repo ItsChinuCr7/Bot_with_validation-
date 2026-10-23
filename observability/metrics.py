@@ -63,7 +63,7 @@ class TrackedLLM:
 def record_inference(metrics: dict) -> None:
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "query_id": str(uuid.uuid4()),
+        "query_id": metrics.get("request_id") or str(uuid.uuid4()),
         **metrics,
     }
     METRICS_FILE.parent.mkdir(parents=True, exist_ok=True)

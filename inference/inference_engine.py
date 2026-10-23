@@ -452,7 +452,8 @@ def run_inference(
     progress_callback=None,
 ) -> dict:
     requested_route = forced_mode or "auto"
-    with inference_trace(requested_route) as trace:
+    request_id = str(uuid.uuid4())
+    with inference_trace(requested_route, request_id=request_id) as trace:
         def guardrail_event(stage, decision, reason_code, count=0):
             if trace is not None:
                 trace.record_guardrail(stage, decision, reason_code, count)
@@ -468,6 +469,7 @@ def run_inference(
             progress_callback=progress_callback,
             trace=trace,
             guardrail_event=guardrail_event,
+            request_id=request_id,
         )
 
 
@@ -482,6 +484,7 @@ def _run_inference_traced(
     progress_callback=None,
     trace=None,
     guardrail_event=None,
+    request_id: str | None = None,
 ) -> dict:
     """Validate, rate-limit, trace, and audit one inference request."""
     started = time.perf_counter()
@@ -489,6 +492,7 @@ def _run_inference_traced(
     traced_llm = TrackedLLM(llm)
     traced_heavy = TrackedLLM(llm_heavy)
     metrics = {
+        "request_id": request_id,
         "route": "blocked",
         "model": None,
         "models_used": [],
@@ -506,6 +510,7 @@ def _run_inference_traced(
     outcome = "blocked"
     validated = None
     guardrail_failure_reason = None
+    abstention_reason = None
     record_guardrail_event = guardrail_event
     guardrail_outcomes = []
 
@@ -599,6 +604,7 @@ def _run_inference_traced(
                 guardrail_event(
                     "answer_validation", "abstained", "insufficient_evidence"
                 )
+            abstention_reason = "insufficient_evidence"
             result.update({
                 "answer": INSUFFICIENT_EVIDENCE_RESPONSE,
                 "context_used": "",
@@ -631,10 +637,18 @@ def _run_inference_traced(
                     "abusive_language",
                 )
             )
+            else "abstained"
+            if abstention_reason is not None
             else "success"
         )
         result["guardrail_outcomes"] = guardrail_outcomes
-        result["safety_outcome"] = "blocked" if outcome == "blocked" else "passed"
+        result["safety_outcome"] = (
+            "blocked"
+            if outcome == "blocked"
+            else "abstained"
+            if outcome == "abstained"
+            else "passed"
+        )
         return result
     except (InputValidationError, RateLimitExceeded) as exc:
         metrics["error"] = type(exc).__name__
@@ -677,7 +691,11 @@ def _run_inference_traced(
                 else (
                     ("blocked", guardrail_failure_reason)
                     if guardrail_failure_reason or outcome == "blocked"
-                    else ("passed", "none")
+                    else (
+                        ("abstained", abstention_reason)
+                        if outcome == "abstained"
+                        else ("passed", "none")
+                    )
                 )
             )
             trace.record_safety_outcome(*safety_decision)
@@ -687,6 +705,7 @@ def _run_inference_traced(
             validated.text if validated is not None else None,
             metrics["route"],
             outcome,
+            request_id=request_id,
         )
         record_inference(metrics)
         log_experiment(

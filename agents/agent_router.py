@@ -2,6 +2,8 @@
 # agents/agent_router.py
 # ============================================================
 
+import re
+
 ROUTING_RULES = {
     "web":  ["latest news", "current news", "search the web", "search online"],
     "calc": ["calculate", "compute", "solve", "what is the value of"],
@@ -41,6 +43,17 @@ def route_query(query: str, has_docs: bool = False, forced_mode: str = None) -> 
     for kw in ROUTING_RULES["chat"]:
         if kw in q:
             return "chat"
+
+    if has_docs and (
+        re.search(
+            r"\b(?:this|the|uploaded|provided|attached)\s+"
+            r"(?:book|document|pdf|file|guideline|report|manual)\b",
+            query,
+            re.IGNORECASE,
+        )
+        or re.search(r"\b[\w-]+\.pdf\b", query, re.IGNORECASE)
+    ):
+        return "rag"
 
     # Research keyword still works as shortcut even without forced_mode
     if "research" in q:

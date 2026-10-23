@@ -57,11 +57,15 @@ _TOXIC_PATTERNS = (
     re.compile(r"\b(?:kill|hurt)\s+(?:yourself|them|him|her)\b", re.I),
     re.compile(r"\b(?:i will|i'm going to)\s+(?:attack|kill|hurt)\b", re.I),
 )
-_SEXUAL_REQUEST_PATTERNS = (
+_NONCONSENSUAL_SEXUAL_PATTERNS = (
     re.compile(
-        r"\b(?:i\s+)?(?:want|wanna|would like|plan|intend)\s+"
-        r"(?:to\s+)?(?:fuck\s+(?!(?:up|off|around|with|this|that|it|my|the)\b)"
-        r"\w+|have sex|sleep with)\b",
+        r"\b(?:force|coerce|pressure)\s+(?:someone|somebody|them|her|him|"
+        r"my partner)\s+(?:to\s+)?(?:have sex|have sexual contact|sleep with)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:have sex|sexual contact|sleep with)\s+(?:someone|somebody|"
+        r"them|her|him)\s+without\s+(?:their\s+)?consent\b",
         re.I,
     ),
 )
@@ -161,11 +165,11 @@ def validate_input(query: str) -> ValidatedInput:
             )
         if any(
             pattern.search(normalized_query)
-            for pattern in _SEXUAL_REQUEST_PATTERNS
+            for pattern in _NONCONSENSUAL_SEXUAL_PATTERNS
         ):
             raise InputValidationError(
-                "The query was blocked by the sexual-content guardrail.",
-                "sexual_content_request",
+                "The query was blocked by the consent-safety guardrail.",
+                "nonconsensual_sexual_request",
             )
 
         findings = []

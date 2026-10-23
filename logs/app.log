@@ -1126,3 +1126,146 @@ ollama._types.ResponseError: "bge-m3:latest" does not support chat (status code:
 2026-10-23 00:12:59 | INFO     | inference.inference_engine | 💡 Using LLM knowledge...
 2026-10-23 00:15:11 | INFO     | __main__ | Route: general | Answer length: 3591 chars
 2026-10-23 00:15:22 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:54:18 | INFO     | root | ============================================================
+2026-10-23 15:54:18 | INFO     | root | AI Document Intelligence Assistant — started
+2026-10-23 15:54:18 | INFO     | root | ============================================================
+2026-10-23 15:54:43 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-10-23 15:54:55 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:54:55 | INFO     | models.llm | Loading light LLM: phi3:latest
+2026-10-23 15:54:55 | INFO     | models.model_factory | Creating LLM: phi3:latest (mode=light)
+2026-10-23 15:54:57 | INFO     | models.base_llm | LLM loaded: phi3:latest | temp=0.7 | num_predict=4096
+2026-10-23 15:54:57 | INFO     | models.llm | Loading heavy LLM: gemma3:12b
+2026-10-23 15:54:57 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=heavy)
+2026-10-23 15:54:57 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-10-23 15:54:57 | INFO     | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-10-23 15:55:05 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-10-23 15:55:24 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:55:35 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:55:35 | INFO     | models.llm | Loading light LLM: qwen2.5:7b
+2026-10-23 15:55:35 | INFO     | models.model_factory | Creating LLM: qwen2.5:7b (mode=light)
+2026-10-23 15:55:35 | INFO     | models.base_llm | LLM loaded: qwen2.5:7b | temp=0.7 | num_predict=4096
+2026-10-23 15:55:51 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:55:53 | INFO     | __main__ | Query received (60 characters)
+2026-10-23 15:55:53 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 15:55:53 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 15:55:57 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-10-23 15:55:57 | INFO     | inference.inference_engine | 🔢 Using MMR Vector Search
+2026-10-23 15:55:57 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-10-23 15:55:57 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-10-23 15:56:03 | INFO     | inference.inference_engine | ✅ Retrieval: none
+2026-10-23 15:56:03 | INFO     | __main__ | Route: rag | Answer length: 94 chars
+2026-10-23 15:56:15 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:59:43 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:59:56 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 15:59:57 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:00:02 | INFO     | ingestion.pdf_loader | PDF Loader: 430 pages, 28105 tree nodes
+2026-10-23 16:00:03 | INFO     | processing.preprocessor | Preprocessor: dropped 2 empty/short chunks
+2026-10-23 16:00:03 | INFO     | processing.preprocessor | Preprocessor: cleaned 428 documents
+2026-10-23 16:00:03 | INFO     | processing.chunker | Chunker: 428 docs → 2854 chunks (size=450, overlap=160)
+2026-10-23 16:00:03 | INFO     | ingestion.pdf_loader | PDF Loader: 2854 chunks, 1 document tree(s) ready
+2026-10-23 16:02:42 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:02:45 | INFO     | __main__ | Query received (67 characters)
+2026-10-23 16:02:45 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 16:02:45 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 16:02:56 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-10-23 16:02:56 | INFO     | inference.inference_engine | 🔀 Using Hybrid Search (BM25 + Vector)
+2026-10-23 16:02:56 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-10-23 16:02:56 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-10-23 16:03:25 | INFO     | inference.inference_engine | ✅ Retrieval: none
+2026-10-23 16:03:25 | INFO     | __main__ | Route: rag | Answer length: 94 chars
+2026-10-23 16:03:37 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:07:58 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:08:22 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:08:24 | INFO     | __main__ | Query received (7 characters)
+2026-10-23 16:08:24 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 16:08:24 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 16:08:37 | INFO     | inference.inference_engine | ✅ Route → **GENERAL**
+2026-10-23 16:08:37 | INFO     | inference.inference_engine | 💡 Using LLM knowledge...
+2026-10-23 16:08:46 | INFO     | __main__ | Route: general | Answer length: 264 chars
+2026-10-23 16:08:57 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:16:11 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:16:30 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:16:35 | INFO     | ingestion.pdf_loader | PDF Loader: 430 pages, 28105 tree nodes
+2026-10-23 16:16:35 | INFO     | processing.preprocessor | Preprocessor: dropped 2 empty/short chunks
+2026-10-23 16:16:35 | INFO     | processing.preprocessor | Preprocessor: cleaned 428 documents
+2026-10-23 16:16:35 | INFO     | processing.chunker | Chunker: 428 docs → 2854 chunks (size=450, overlap=160)
+2026-10-23 16:16:35 | INFO     | ingestion.pdf_loader | PDF Loader: 2854 chunks, 1 document tree(s) ready
+2026-10-23 16:18:20 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:18:22 | INFO     | __main__ | Query received (67 characters)
+2026-10-23 16:18:22 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 16:18:22 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 16:18:33 | INFO     | inference.inference_engine | ✅ Route → **GENERAL**
+2026-10-23 16:18:33 | INFO     | inference.inference_engine | 💡 Using LLM knowledge...
+2026-10-23 16:18:56 | INFO     | __main__ | Route: general | Answer length: 701 chars
+2026-10-23 16:19:08 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:27:56 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:27:58 | INFO     | __main__ | Query received (119 characters)
+2026-10-23 16:27:58 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 16:27:58 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 16:28:09 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-10-23 16:28:09 | INFO     | inference.inference_engine | 🔀 Using Hybrid Search (BM25 + Vector)
+2026-10-23 16:28:09 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-10-23 16:28:09 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-10-23 16:28:28 | INFO     | inference.inference_engine | ✅ Retrieval: none
+2026-10-23 16:28:28 | INFO     | __main__ | Route: rag | Answer length: 94 chars
+2026-10-23 16:28:39 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:29:07 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:29:12 | INFO     | ingestion.pdf_loader | PDF Loader: 430 pages, 28105 tree nodes
+2026-10-23 16:29:12 | INFO     | processing.preprocessor | Preprocessor: dropped 2 empty/short chunks
+2026-10-23 16:29:12 | INFO     | processing.preprocessor | Preprocessor: cleaned 428 documents
+2026-10-23 16:29:12 | INFO     | processing.chunker | Chunker: 428 docs → 2854 chunks (size=450, overlap=160)
+2026-10-23 16:29:12 | INFO     | ingestion.pdf_loader | PDF Loader: 2854 chunks, 1 document tree(s) ready
+2026-10-23 16:31:04 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 16:31:06 | INFO     | __main__ | Query received (120 characters)
+2026-10-23 16:31:06 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 16:31:06 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 16:31:12 | INFO     | inference.inference_engine | ✅ Route → **GENERAL**
+2026-10-23 16:31:12 | INFO     | inference.inference_engine | 💡 Using LLM knowledge...
+2026-10-23 16:32:07 | INFO     | __main__ | Route: general | Answer length: 1386 chars
+2026-10-23 16:32:18 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:02:15 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:03:22 | INFO     | root | ============================================================
+2026-10-23 17:03:22 | INFO     | root | AI Document Intelligence Assistant — started
+2026-10-23 17:03:22 | INFO     | root | ============================================================
+2026-10-23 17:03:38 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-10-23 17:03:49 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:03:49 | INFO     | models.llm | Loading light LLM: phi3:latest
+2026-10-23 17:03:49 | INFO     | models.model_factory | Creating LLM: phi3:latest (mode=light)
+2026-10-23 17:03:51 | INFO     | models.base_llm | LLM loaded: phi3:latest | temp=0.7 | num_predict=4096
+2026-10-23 17:03:51 | INFO     | models.llm | Loading heavy LLM: gemma3:12b
+2026-10-23 17:03:51 | INFO     | models.model_factory | Creating LLM: gemma3:12b (mode=heavy)
+2026-10-23 17:03:51 | INFO     | models.base_llm | LLM loaded: gemma3:12b | temp=0.7 | num_predict=4096
+2026-10-23 17:03:51 | INFO     | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-10-23 17:03:59 | WARNING  | tensorflow | From C:\Users\chinm\AppData\Local\Programs\Python\Python312\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-10-23 17:04:21 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:04:24 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:04:39 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:04:41 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:04:46 | INFO     | ingestion.pdf_loader | PDF Loader: 430 pages, 28105 tree nodes
+2026-10-23 17:04:46 | INFO     | processing.preprocessor | Preprocessor: dropped 2 empty/short chunks
+2026-10-23 17:04:46 | INFO     | processing.preprocessor | Preprocessor: cleaned 428 documents
+2026-10-23 17:04:46 | INFO     | processing.chunker | Chunker: 428 docs → 2854 chunks (size=450, overlap=160)
+2026-10-23 17:04:46 | INFO     | ingestion.pdf_loader | PDF Loader: 2854 chunks, 1 document tree(s) ready
+2026-10-23 17:06:32 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:06:34 | INFO     | __main__ | Query received (86 characters)
+2026-10-23 17:06:34 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 17:06:34 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 17:06:42 | INFO     | inference.inference_engine | ✅ Route → **RAG**
+2026-10-23 17:06:42 | INFO     | inference.inference_engine | 🔀 Using Hybrid Search (BM25 + Vector)
+2026-10-23 17:06:42 | INFO     | inference.inference_engine | 🔍 Retrieving context...
+2026-10-23 17:06:42 | INFO     | inference.inference_engine | ✍️ Generating answer...
+2026-10-23 17:07:00 | INFO     | inference.inference_engine | ✅ Retrieval: none
+2026-10-23 17:07:00 | INFO     | __main__ | Route: rag | Answer length: 94 chars
+2026-10-23 17:07:11 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:10:36 | INFO     | models.model_factory | Model factory: found 3 Ollama models
+2026-10-23 17:10:38 | INFO     | __main__ | Query received (50 characters)
+2026-10-23 17:10:38 | INFO     | inference.inference_engine | 🔀 Detecting query type...
+2026-10-23 17:10:38 | INFO     | inference.inference_engine | 🧠 Classifying with LLM...
+2026-10-23 17:10:41 | INFO     | inference.inference_engine | ✅ Route → **GENERAL**
+2026-10-23 17:10:41 | INFO     | inference.inference_engine | 💡 Using LLM knowledge...
+2026-10-23 17:11:44 | INFO     | __main__ | Route: general | Answer length: 4306 chars
+2026-10-23 17:11:55 | INFO     | models.model_factory | Model factory: found 3 Ollama models

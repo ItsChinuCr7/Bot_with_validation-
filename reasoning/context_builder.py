@@ -4,6 +4,28 @@ from config.settings import MAX_CHARS_PER_DOC, FINAL_CONTEXT_DOCS
 
 CONTEXT_CHAR_BUDGET = 2500
 
+
+def format_source_citations(source_refs: list[dict]) -> str:
+    citations = []
+    seen = set()
+    for source in source_refs:
+        source_file = source.get("source_file")
+        page = source.get("page")
+        if (
+            not isinstance(source_file, str)
+            or not source_file
+            or not isinstance(page, int)
+            or isinstance(page, bool)
+            or page < 1
+        ):
+            continue
+        citation = (source_file, page)
+        if citation not in seen:
+            seen.add(citation)
+            citations.append(f"{source_file}, p. {page}")
+    return f"Sources: {'; '.join(citations)}" if citations else ""
+
+
 def build_context(
     docs,
     include_sources: bool = False,

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from evaluation.ab_tester import run_ab_test
 from evaluation.eval_suite import load_dataset
+from agents.agent_router import route_query
 from guardrails.input_validator import (
     InputValidationError,
     GuardrailCheckError,
@@ -25,7 +26,7 @@ from models.model_factory import get_available_models
 from observability import metrics
 from observability.logfire_tracing import inference_trace
 from prompts.registry import ACTIVE_RAG_PROMPT, get_prompt_version
-from reasoning.context_builder import build_context
+from reasoning.context_builder import build_context, format_source_citations
 from retrieval.vector_store import load_vector_store
 
 
@@ -100,6 +101,18 @@ class PlatformFeatureTests(unittest.TestCase):
         )
         self.assertEqual(references[0]["relevance_score"], 4.25)
 
+    def test_source_citations_use_real_unique_source_pages(self):
+        citations = format_source_citations([
+            {"source_file": "guideline.pdf", "page": 4},
+            {"source_file": "guideline.pdf", "page": 4},
+            {"source_file": "guideline.pdf", "page": 5},
+            {"source_file": "other.pdf", "page": "?"},
+        ])
+        self.assertEqual(
+            citations,
+            "Sources: guideline.pdf, p. 4; guideline.pdf, p. 5",
+        )
+
     def test_saved_index_embedding_metadata_mismatch_fails_closed(self):
         doc = SimpleNamespace(
             metadata={"embedding_model": "different-model"}
@@ -142,6 +155,7 @@ class PlatformFeatureTests(unittest.TestCase):
         ):
             with inference_trace("auto") as trace:
                 trace.record({
+                    "request_id": "request-123",
                     "route": "rag",
                     "model": "test-model",
                     "latency_ms": 12,
@@ -152,10 +166,52 @@ class PlatformFeatureTests(unittest.TestCase):
 
         fake_logfire.configure.assert_called_once()
         fake_logfire.instrument_httpx.assert_called_once()
-        self.assertEqual(fake_span.set_attribute.call_args_list[0].args, ("ai.route", "rag"))
+        span_attributes = {
+            call.args[0]: call.args[1]
+            for call in fake_span.set_attribute.call_args_list
+        }
+        self.assertEqual(span_attributes["ai.request_id"], "request-123")
+        self.assertEqual(span_attributes["ai.route"], "rag")
         logged_attributes = fake_logfire.info.call_args.kwargs
+        self.assertEqual(logged_attributes["request_id"], "request-123")
         self.assertNotIn("query", logged_attributes)
         self.assertNotIn("session_id", logged_attributes)
+
+    def test_logfire_configuration_failure_is_not_reported_as_a_trace(self):
+        fake_logfire = MagicMock()
+        fake_logfire.configure.side_effect = RuntimeError("export unavailable")
+        with (
+            patch.dict(
+                os.environ,
+                {"AI_ENABLE_LOGFIRE": "true", "LOGFIRE_TOKEN": "test-write-token"},
+                clear=True,
+            ),
+            patch.dict(sys.modules, {"logfire": fake_logfire}),
+            patch("observability.logfire_tracing._configured_logfire", None),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "export unavailable"):
+                with inference_trace("auto", request_id="request-123"):
+                    self.fail("A failed Logfire configuration must not yield a trace.")
+        fake_logfire.configure.assert_called_once()
+
+    def test_logfire_instrumentation_failure_is_not_silently_ignored(self):
+        fake_logfire = MagicMock()
+        fake_logfire.instrument_httpx.side_effect = RuntimeError(
+            "instrumentation unavailable"
+        )
+        with (
+            patch.dict(
+                os.environ,
+                {"AI_ENABLE_LOGFIRE": "true", "LOGFIRE_TOKEN": "test-write-token"},
+                clear=True,
+            ),
+            patch.dict(sys.modules, {"logfire": fake_logfire}),
+            patch("observability.logfire_tracing._configured_logfire", None),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "instrumentation unavailable"):
+                with inference_trace("auto"):
+                    self.fail("A failed instrumentation setup must not yield a trace.")
+        fake_logfire.configure.assert_called_once()
 
     def test_tracked_llm_uses_provider_usage_metadata(self):
         class FakeLLM:
@@ -179,6 +235,25 @@ class PlatformFeatureTests(unittest.TestCase):
         prompt = get_prompt_version(ACTIVE_RAG_PROMPT)
         self.assertEqual(prompt["version"], "1.0")
         self.assertIn("{context}", prompt["template"])
+        self.assertIn("page number", prompt["template"])
+        self.assertIn("Do not infer either", prompt["template"])
+
+    def test_uploaded_book_questions_are_routed_to_documents(self):
+        self.assertEqual(
+            route_query("Summarize this book and list its diseases.", has_docs=True),
+            "rag",
+        )
+        self.assertEqual(
+            route_query(
+                "Summarize standard-treatment-guidelines.pdf.",
+                has_docs=True,
+            ),
+            "rag",
+        )
+        self.assertEqual(
+            route_query("Summarize this book.", has_docs=False),
+            "general",
+        )
 
     def test_ab_test_scores_same_queries_for_both_models(self):
         report = run_ab_test(

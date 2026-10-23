@@ -16,6 +16,7 @@ class InferenceTrace:
     def record(self, metrics: dict) -> None:
         error = metrics.get("error")
         attributes = {
+            "request_id": metrics.get("request_id"),
             "route": metrics.get("route"),
             "outcome": metrics.get(
                 "outcome", "error" if error else "success"
@@ -106,13 +107,18 @@ def _get_logfire():
 @contextmanager
 def inference_trace(
     requested_route: str,
+    request_id: str | None = None,
 ) -> Generator[InferenceTrace | None, None, None]:
     logfire = _get_logfire()
     if logfire is None:
         yield None
         return
 
-    with logfire.span("ai.inference", requested_route=requested_route) as span:
+    with logfire.span(
+        "ai.inference",
+        requested_route=requested_route,
+        request_id=request_id,
+    ) as span:
         yield InferenceTrace(logfire, span)
 
 

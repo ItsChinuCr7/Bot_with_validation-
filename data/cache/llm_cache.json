@@ -951,5 +951,473 @@
       "guardrail_outcomes": [],
       "safety_outcome": "unknown"
     }
+  },
+  "d692d1617913fddbf89e398ab0673d9f41772742ea8f7d6477bd4df04ceff895": {
+    "timestamp": 1792751163.6917257,
+    "query": "fuck thee registerd owner of this app. alex no is [REDACTED_PHONE]",
+    "route": "rag-v2:1.0:f615e20b4ef589cd5167be70cd45aba87f93ae91fdd60068c6cff447d2f7240e",
+    "result": {
+      "answer": "No sufficiently relevant documents were found for this question.",
+      "route": "rag",
+      "retrieval_method": "none",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 8,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": "1.0",
+      "source_chunks": [],
+      "retrieval_diagnostics": {
+        "query_fingerprint": "195ee15b9286a4fa",
+        "relevance_threshold": 0.0,
+        "chunks": [
+          {
+            "chunk_id": "b3400e18-3c35-4962-aed9-bd5c3b14fb0f",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 3,
+            "score": -10.62947,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "0b282019-e697-47a1-b039-06b5c2f1e633",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 13,
+            "score": -11.19365,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "e0baee8b-1d0d-4291-a602-4e2226dfa1ba",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 48,
+            "score": -11.30067,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "15193c8d-95cc-4f5a-a4d4-f714f39348c2",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 414,
+            "score": -11.34719,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "aa7cc9f6-a44d-4222-97b5-251dbe730af6",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 112,
+            "score": -11.41225,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "0c917707-8cfe-4991-8be3-d2f6c5299daa",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 273,
+            "score": -11.43109,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "a77b1e76-b722-47f5-8643-6a3fb5c5bad4",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 149,
+            "score": -11.4478,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "4859a0f2-6af5-4a34-af6a-be5ace94a474",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 24,
+            "score": -11.48119,
+            "rejection_reason": "below_relevance_threshold"
+          }
+        ]
+      },
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
+  },
+  "3cbf2eb6a3ee76d45284915429ee89e6951675708c2ffd2afa964a3d2144f8e7": {
+    "timestamp": 1792751605.9521663,
+    "query": "fuck thee registerd owner of this app. alex no is [REDACTED_PHONE]\n[history:ce4f5e3709c164a2e64828938df3f87bd5353ad41613e6e278e0be0914a1967e]",
+    "route": "rag-v2:1.0:f615e20b4ef589cd5167be70cd45aba87f93ae91fdd60068c6cff447d2f7240e",
+    "result": {
+      "answer": "No sufficiently relevant documents were found for this question.",
+      "route": "rag",
+      "retrieval_method": "none",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 11,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": "1.0",
+      "source_chunks": [],
+      "retrieval_diagnostics": {
+        "query_fingerprint": "b9eee0527ba26338",
+        "relevance_threshold": 0.0,
+        "chunks": [
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 5,
+            "score": -11.00306,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 1,
+            "score": -11.15856,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "2273d54c-9a61-4d09-9c8b-86b90f663f6a",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 385,
+            "score": -11.44306,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "fcf308a8-1c44-4a67-a693-26b2013831cd",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 391,
+            "score": -11.46993,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "08830abb-d239-4546-a787-aada1ed75fda",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 391,
+            "score": -11.47506,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 5,
+            "score": -11.47891,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "613d2fa5-217d-4249-99ee-d1e264365cd1",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 331,
+            "score": -11.47955,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "b2e61db9-aac9-45c2-adf5-a6ba00b25faf",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 244,
+            "score": -11.48489,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "33ed3897-2fd9-49c3-affd-73beba38361d",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 48,
+            "score": -11.49433,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "4712dad2-83f3-4fce-a67d-97da3c0008ca",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 391,
+            "score": -11.50221,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "a7f147a9-039b-4d9a-91d8-ab83aaf5ca21",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 260,
+            "score": -11.51165,
+            "rejection_reason": "below_relevance_threshold"
+          }
+        ]
+      },
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
+  },
+  "d4af97b53ce578ae2f4bb5bfd34bfb4f5fec09160069e82b3c614f2d03af6e43": {
+    "timestamp": 1792751926.2877402,
+    "query": "fuck me",
+    "route": "general",
+    "result": {
+      "answer": "I understand you're feeling frustrated, but could you please provide a clear and appropriate question or request? Using inappropriate language won't help resolve your issue. Let's focus on addressing the actual problem or seeking assistance in a respectful manner.",
+      "route": "general",
+      "retrieval_method": "",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 0,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": null,
+      "source_chunks": [],
+      "retrieval_diagnostics": {},
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
+  },
+  "43507f31b5e1c0473784a12e2edba4b2afa03deb4e8bdb586f2bc9641fc3fee7": {
+    "timestamp": 1792752536.768487,
+    "query": "waht if i wnated have sex with aled, and his phone no is [REDACTED_PHONE]",
+    "route": "general",
+    "result": {
+      "answer": "I must clarify that having sexual relations with someone without their consent is illegal and deeply unethical. If you have any concerns or feelings about a person, it's important to communicate openly and respectfully. Consent is crucial in all forms of relationships.\n\nIf you're feeling confused or struggling with your feelings, it might be helpful to talk to a trusted friend, family member, or a professional counselor who can provide guidance and support. Remember, respect for others' boundaries is fundamental in maintaining healthy relationships.\n\nIf you need help understanding consent or navigating your feelings, I'd be glad to discuss that with you in a respectful and informative manner.",
+      "route": "general",
+      "retrieval_method": "",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 0,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": null,
+      "source_chunks": [],
+      "retrieval_diagnostics": {},
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
+  },
+  "45190f79fcdb3c41e5d3a4e872c36020cf20257348543d9b68611404c660f3b6": {
+    "timestamp": 1792753108.1341898,
+    "query": "tell me about this book, what it wokrds and helps for.. and get em the major non curbael desieses mentinod in this book\n[history:cbc613a16550b9947586fbeca129e05102c9b77b71fedd9b9a08a1a118f8bcd2]",
+    "route": "rag-v2:1.0:f615e20b4ef589cd5167be70cd45aba87f93ae91fdd60068c6cff447d2f7240e",
+    "result": {
+      "answer": "No sufficiently relevant documents were found for this question.",
+      "route": "rag",
+      "retrieval_method": "none",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 10,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": "1.0",
+      "source_chunks": [],
+      "retrieval_diagnostics": {
+        "query_fingerprint": "7f3f2cd05137ca8e",
+        "relevance_threshold": 0.0,
+        "chunks": [
+          {
+            "chunk_id": "667514dd-2685-47a8-a801-782897c20fad",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 122,
+            "score": -9.04545,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 5,
+            "score": -9.50108,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "1f72b50c-2f39-44e3-a2c1-25c24c69e78f",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 296,
+            "score": -9.85948,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "43b129b8-5896-4a72-a49d-2249e21e9aea",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 18,
+            "score": -10.00691,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "704798e2-0c0e-4b12-a97d-0d70683d040e",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 5,
+            "score": -10.11638,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "274d00ca-2026-4eaf-91b4-5d637605a42a",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 371,
+            "score": -10.23081,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "8a9f3b1b-8a18-4960-a992-e4ecd62ebdd8",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 201,
+            "score": -10.26985,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "0e5b2606-7225-4d6a-9918-9a11c8b9be32",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 75,
+            "score": -10.33159,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 5,
+            "score": -10.62804,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "5f266ec3-3d97-4954-a7e8-f6db99112fbe",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 213,
+            "score": -10.67106,
+            "rejection_reason": "below_relevance_threshold"
+          }
+        ]
+      },
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
+  },
+  "c9ece495323fac76bb3f2fce357c51fa6367a1a0b0d828df9002ea9c2c5505fa": {
+    "timestamp": 1792753327.3773432,
+    "query": "tell me about this book, what it wokrds and helps for.. and get em the major non curbael desieses mentinod in this book",
+    "route": "general",
+    "result": {
+      "answer": "It seems like you might be referring to a specific book, but there isn't enough context or information provided. Could you please provide more details about the book? For instance, what is its title, and who wrote it? Additionally, if you could clarify what \"non curbael desieses\" means in this context, that would also help me provide an accurate response.\n\nIf you're referring to a medical or health-related book, the term \"non-venereal diseases\" typically refers to conditions that are not sexually transmitted. Some common non-venereal diseases include:\n\n1. **Tuberculosis (TB)** - A bacterial infection affecting the lungs but can also spread to other parts of the body.\n2. **Hypertension** - Also known as high blood pressure, a chronic medical condition where the blood pressure in the arteries is persistently elevated.\n3. **Diabetes Mellitus** - A group of metabolic disorders characterized by high blood sugar levels over a prolonged period due to absolute or relative insulin deficiency.\n4. **Asthma** - A common long-term inflammatory disease of the airways affecting the lungs, causing breathing difficulties.\n5. **Rheumatoid Arthritis** - An autoimmune disorder that causes chronic inflammation and pain in joints.\n\nIf you could provide more specific details about the book and the context in which \"non-venereal diseases\" are mentioned, I can give a more detailed answer.",
+      "route": "general",
+      "retrieval_method": "",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 0,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": null,
+      "source_chunks": [],
+      "retrieval_diagnostics": {},
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
+  },
+  "2fbacefccbfe82553e238c84555337f54924ff902cbfdd963d79f61a2de7c876": {
+    "timestamp": 1792755420.6043208,
+    "query": "fuck thee registerd owner of this app. alex no is [REDACTED_PHONE] . what is sex no of good.",
+    "route": "rag-v2:1.0:f615e20b4ef589cd5167be70cd45aba87f93ae91fdd60068c6cff447d2f7240e",
+    "result": {
+      "answer": "No sufficiently relevant documents were found for this question.",
+      "route": "rag",
+      "retrieval_method": "none",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 11,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": "1.0",
+      "source_chunks": [],
+      "retrieval_diagnostics": {
+        "query_fingerprint": "6c6393ab8c901ae4",
+        "relevance_threshold": -2.0,
+        "chunks": [
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 1,
+            "score": -9.68579,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "cd8664ed-cc62-418c-8bcb-ee37b187f9e5",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 24,
+            "score": -11.04342,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 1,
+            "score": -11.19922,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "d5c03cf0-ad59-414f-98e2-b60646474994",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 267,
+            "score": -11.28926,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": null,
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 1,
+            "score": -11.30373,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "9cb013e4-4173-4f2f-bea5-fd2b54523357",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 298,
+            "score": -11.30839,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "b7c6d890-c6ba-4b95-9eb6-1da33ae73c50",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 267,
+            "score": -11.35733,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "50a8ed32-38e9-4da7-9fec-f084378d6762",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 289,
+            "score": -11.35778,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "e0daa5a0-bfe2-4257-bc06-da0157b6ee71",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 25,
+            "score": -11.3878,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "df9a86df-20ae-497b-9877-9bcfc9be7f67",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 282,
+            "score": -11.39167,
+            "rejection_reason": "below_relevance_threshold"
+          },
+          {
+            "chunk_id": "c2da9374-74e6-4a10-9cf1-e82f57737dd4",
+            "source_file": "standard-treatment-guidelines.pdf",
+            "page": 24,
+            "score": -11.40379,
+            "rejection_reason": "below_relevance_threshold"
+          }
+        ]
+      },
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
+  },
+  "ca848f6a83ac09b4d32e51cd1585f4fd7472d3c037a4216afbab5b2ca3758085": {
+    "timestamp": 1792755704.669428,
+    "query": "tell me about the diseases which are least curabel",
+    "route": "general",
+    "result": {
+      "answer": "While there isn't a single disease universally considered \"least curable,\" many chronic and degenerative conditions can be very challenging to manage or cure, often with no definitive treatment available. It is crucial first to understand that the terminology of being 'curable' might vary based on context; for example, some infections are considered eradicated worldwide (e.g., smallpox), while others may be treatable but not curable due to their chronic nature or lack of effective treatment options.\n\nHere is a list of diseases and conditions known generally to have no cure as per current medical understanding:\n\n1. Alzheimer's disease - A progressive neurodegenerative disorder that leads to memory loss, cognitive impairment, and difficulty with daily activities. While treatments can manage symptoms temporarily, there is currently no known way to halt or reverse the progression of this condition definitively.\n  \n2. Parkinson's disease - Another neurodegenerative disorder characterized by tremors, rigidity, slow movement (bradykinesia), and balance problems due to loss of dopamine-producing cells in the brain. Treatment can help manage symptoms but cannot cure it or stop its progression as we know today.\n   \n3. Multiple sclerosis - An autoimmune disease affecting the central nervous system, where immune attacks lead to demyelination and nerve damage that results in a wide range of neurological symptoms like muscle weakness, coordination problems, and cognitive issues. While treatments are available for managing relapses and slowing progression, there is no cure yet.\n   \n4. Rheumatoid arthritis - A chronic inflammatory disorder affecting the joints that leads to painful swelling and eventual bone erosion and joint deformity. Current treatments manage symptoms and slow progression, but they cannot cure it or prevent long-term damage completely.\n   \n5. Osteoarthritis - This common form of arthritis results from wear and tear on the joints leading to painful inflammation that affects mobility. Although treatments like medications and physical therapy can manage symptoms, there's no definitive cure for osteoarthritis as a whole.\n   \n6. Some mental health conditions - such as schizophrenia or bipolar disorder (also known as manic-depressive illness) typically do not have curative treatments but are manageable with medication and therapy, helping patients lead more stable lives while dealing with the effects of these diseases.\n   \n7. Chronic hepatitis C - This liver infection often becomes chronic and can cause long-term health issues like cirrhosis or liver cancer even after a successful initial treatment course (antiviral therapy). While treatments have become more effective, it's still not always curable because the virus might persist on a microscopic level.\n   \n8. Epilepsy - A neurological disorder where seizures originate in the brain and can vary widely among individuals regarding their symptoms, triggers, response to treatment, etc. While many cases of epilepsy are effectively managed with medications or surgery preventing most seizures from occurring, some forms might not be entirely curable.\n   \n9. Heart disease - Many conditions related to heart diseases (like coronary artery disease) have no cure but can often be controlled through lifestyle changes and treatments like medications or surgery that manage symptoms effectively over the long term for many individuals, with varying degrees of success depending on factors such as severity at diagnosis.\n   \n10. Hearing loss - This is a common condition caused by damage to the inner ear's hair cells which cannot be repaired or regrown naturally in humans. While hearing aid devices and cochlear implants can significantly improve quality of life, they don't cure it permanently as there are no procedures that restore natural function yet fully available for most people experiencing severe to profound levels of deafness at this point.\n   \nPlease note: This information is based on what we know and understand about these diseases up until now; medical science continually advances, so treatments or even cures can become more viable in the future as research progresses! It's always a good idea to consult with healthcare professionals for personalized advice regarding any specific condition.",
+      "route": "general",
+      "retrieval_method": "",
+      "chosen_sources": [],
+      "source_extracts": [],
+      "context_used": "",
+      "chunks_retrieved": 0,
+      "chunks_used": 0,
+      "cache_hit": false,
+      "prompt_version": null,
+      "source_chunks": [],
+      "retrieval_diagnostics": {},
+      "guardrail_outcomes": [],
+      "safety_outcome": "unknown"
+    }
   }
 }

@@ -16,7 +16,8 @@ TOP_K_RETRIEVAL = 8
 FINAL_CONTEXT_DOCS = 4
 MAX_CHARS_PER_DOC = 1200
 MAX_REASONING_DEPTH = 2
-MIN_RELEVANCE_SCORE = 0.0
+# The relevant book-purpose excerpt scored -1.328 with this reranker.
+MIN_RELEVANCE_SCORE = -2.0
 HIGH_RELEVANCE_SCORE = 3.0
 # Add these lines
 LLM_NUM_PREDICT = 2000# shorter answers = faster

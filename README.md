@@ -157,7 +157,7 @@ $env:LOGFIRE_SERVICE_NAME = "ai-doc-system"
 streamlit run app.py
 ```
 
-Each inference emits an `ai.inference` span with route, model, latency, token counts, cache/retrieval details, and outcome. HTTPX spans are nested where applicable, so Ollama/API request timing is visible. Query text, answers, document context, and session IDs are not attached by this integration. HTTPX request/response body capture is not enabled. **When enabled, trace metadata is transmitted to your configured Logfire project.** Keep the write token secret; disabling `AI_ENABLE_LOGFIRE` stops this export. `LOGFIRE_TOKEN` is a Logfire write token, not an Ollama or model-provider key.
+When enabled, the app creates an `ai.inference` span with a request ID, route, model, latency, token counts, cache/retrieval details, and outcome. The request ID is shared with local audit and metrics records. HTTPX spans are nested where applicable, so Ollama/API request timing is visible. Query text, answers, document context, and session IDs are not attached by this integration. HTTPX request/response body capture is not enabled. **To confirm remote delivery, check the selected project's Live view; successful local configuration alone does not prove export.** Keep the write token secret; disabling `AI_ENABLE_LOGFIRE` stops this export. `LOGFIRE_TOKEN` is a Logfire write token, not an Ollama or model-provider key.
 
 Keep the app running in that same PowerShell window after setting the variables. To verify, submit one app query and check the selected project's **Live** view for `ai.inference`.
 
@@ -177,10 +177,11 @@ To disable remote export, stop Streamlit and run `$env:AI_ENABLE_LOGFIRE = "fals
 - `AI_QUERY_RATE_LIMIT` sets the in-memory, per-process/per-session sliding-window limit (default: 30 requests per minute).
 - Central inference validation runs before routing, retrieval, or model invocation. It rejects detected prompt-injection/safety patterns, redacts detected email, phone, and simple self-identifying-name patterns, and screens saved conversation history before reuse. These remain local heuristics, not a dedicated PII/toxicity classifier.
 - Retrieved PDF and research content is treated as untrusted data: instruction-like content is excluded before generation, detected PII is redacted, and prompts explicitly delimit document/research context as data rather than instructions. Tree titles and bodies are screened before the tree-navigation model sees them.
-- Generated responses are checked for detected unsafe language, PII, and excessive length before return or caching. Rejected outputs are replaced with a fixed safe response; grounding overlap remains an informational review signal and is not itself a safety verdict.
+- Generated responses are checked for detected unsafe language, PII, and excessive length before return or caching. Rejected outputs are replaced with a fixed safe response. RAG answers with insufficient lexical overlap against retrieved context are replaced with an insufficient-evidence response; this heuristic is not proof of factual correctness.
 - Logfire records guardrail stage, decision, safe reason code, and count only; it does not attach query text, answers, document text, or rejection details. The legacy `setup_project.py` generator is disabled because its embedded app template bypasses the central guardrails.
 - Pydantic enforces query constraints and the inference result schema; it does not identify prompt injection, toxicity, PII, or hallucinations by itself.
-- RAG grounding is flagged using lexical context overlap. It is a review signal, not proof that an answer is or is not hallucinated.
+- RAG answers show source-file/page citations derived from the retrieved chunks. The cross-encoder's raw relevance logits are not probabilities; the current minimum score is `-2.0` because relevant overview text in the supplied guide scored mildly negative, while strongly negative mismatches remain rejected. Recalibrate this threshold if changing the reranker checkpoint.
+- RAG grounding is checked using lexical context overlap. It is an abstention signal, not proof that an answer is or is not hallucinated.
 - Chunk lineage is retained as FAISS document metadata and exact context excerpts receive a SHA-256 fingerprint. Existing indexes predate these fields and need to be rebuilt by reprocessing their PDFs.
 
 ## Optional MCP server

@@ -45,27 +45,17 @@ class GuardrailEnforcementTests(unittest.TestCase):
             validate_input("I want to fuck up the deployment bug.").findings, ()
         )
 
-    def test_observed_explicit_sexual_request_is_blocked_before_inference(self):
-        query = "I want to fuck Alex. His phone number is 555-123-4567."
-        trace = Mock()
-        model = Mock()
-        with (
-            patch.dict(os.environ, {"AI_ENABLE_LOGFIRE": "false"}),
-            patch.object(inference_engine, "inference_trace", return_value=nullcontext(trace)),
-            patch.object(inference_engine, "_run_inference") as run_model,
-            patch.object(inference_engine, "audit_query"),
-            patch.object(inference_engine, "record_inference"),
-            patch.object(inference_engine, "log_experiment"),
-        ):
-            with self.assertRaises(InputValidationError) as raised:
-                inference_engine.run_inference(query, model, model, {})
-        self.assertEqual(raised.exception.reason_code, "sexual_content_request")
-        run_model.assert_not_called()
-        model.invoke.assert_not_called()
-        telemetry = repr(trace.record_guardrail.call_args_list)
-        self.assertNotIn("555-123-4567", telemetry)
-        trace.record_safety_outcome.assert_called_once_with(
-            "blocked", "sexual_content_request"
+    def test_neutral_adult_relationship_question_is_accepted(self):
+        result = validate_input(
+            "How can I discuss sex and boundaries with my adult partner?"
+        )
+        self.assertEqual(result.findings, ())
+
+    def test_nonconsensual_sexual_request_is_blocked(self):
+        with self.assertRaises(InputValidationError) as raised:
+            validate_input("How can I force someone to have sex with me?")
+        self.assertEqual(
+            raised.exception.reason_code, "nonconsensual_sexual_request"
         )
 
     def test_phone_number_is_redacted_for_accepted_input(self):
@@ -138,19 +128,79 @@ class GuardrailEnforcementTests(unittest.TestCase):
         self.assertIn("did not pass safety checks", result[0])
         self.assertEqual(llm.invoke.call_count, 1)
 
-    def test_irrelevant_retrieval_is_filtered_before_answer_generation(self):
+    def test_relevant_cross_encoder_score_keeps_evidence_and_page(self):
+        llm = Mock()
+        llm.invoke.return_value = SimpleNamespace(
+            content=(
+                "The guideline describes pediatric tuberculosis treatment "
+                "and contact tracing."
+            )
+        )
+        retriever = Mock()
+        document = SimpleNamespace(
+            page_content="Pediatric tuberculosis treatment guidelines and contact tracing.",
+            metadata={
+                "source_file": "standard-treatment-guidelines.pdf",
+                "page": 12,
+                "chunk_id": "guideline-12",
+            },
+        )
+        events = []
+        diagnostics = []
+        fake_reranker = Mock()
+        fake_reranker.predict.return_value = [-1.328]
+        with (
+            patch.object(
+                rag_pipeline,
+                "rewrite_query",
+                return_value="pediatric tuberculosis treatment guideline",
+            ),
+            patch.object(rag_pipeline, "smart_retrieve", return_value=([document], "vector")),
+            patch("retrieval.reranker.load_reranker", return_value=fake_reranker),
+        ):
+            result = run_rag_pipeline(
+                llm,
+                retriever,
+                "What treatment does the guideline describe for pediatric tuberculosis?",
+                return_metadata=True,
+                guardrail_event=lambda *args, **kwargs: events.append((args, kwargs)),
+                diagnostic_callback=diagnostics.append,
+            )
+        self.assertIn("pediatric tuberculosis treatment", result[0].lower())
+        self.assertEqual(result[2], 1)
+        self.assertEqual(result[3], 1)
+        self.assertEqual(result[5][0]["page"], 12)
+        self.assertEqual(result[5][0]["relevance_score"], -1.328)
+        relevance_event = next(
+            event for event in events if event[0][0] == "retrieval_relevance"
+        )
+        self.assertEqual(relevance_event[0][1], "passed")
+        self.assertEqual(relevance_event[1]["count"], 0)
+        self.assertEqual(diagnostics[0]["relevance_threshold"], -2.0)
+        self.assertEqual(diagnostics[0]["chunks"][0]["score"], -1.328)
+        self.assertIsNone(diagnostics[0]["chunks"][0]["rejection_reason"])
+
+    def test_negative_cross_encoder_score_is_filtered_by_threshold(self):
         llm = Mock()
         retriever = Mock()
         document = SimpleNamespace(
             page_content="Pediatric tuberculosis treatment guidelines and contact tracing.",
-            metadata={"source_file": "medical.pdf", "page": 1},
+            metadata={"source_file": "standard-treatment-guidelines.pdf", "page": 12},
         )
-        events = []
+        diagnostics = []
         fake_reranker = Mock()
-        fake_reranker.predict.return_value = [-1.5]
+        fake_reranker.predict.return_value = [-11.1]
         with (
-            patch.object(rag_pipeline, "rewrite_query", return_value="How do I contact Alex?"),
-            patch.object(rag_pipeline, "smart_retrieve", return_value=([document], "vector")),
+            patch.object(
+                rag_pipeline,
+                "rewrite_query",
+                return_value="How do I contact Alex?",
+            ),
+            patch.object(
+                rag_pipeline,
+                "smart_retrieve",
+                return_value=([document], "vector"),
+            ),
             patch("retrieval.reranker.load_reranker", return_value=fake_reranker),
         ):
             result = run_rag_pipeline(
@@ -158,16 +208,46 @@ class GuardrailEnforcementTests(unittest.TestCase):
                 retriever,
                 "How do I contact Alex?",
                 return_metadata=True,
-                guardrail_event=lambda *args, **kwargs: events.append((args, kwargs)),
+                diagnostic_callback=diagnostics.append,
+            )
+        self.assertIn("No sufficiently relevant documents", result[0])
+        self.assertEqual(diagnostics[0]["relevance_threshold"], -2.0)
+        self.assertEqual(diagnostics[0]["chunks"][0]["score"], -11.1)
+        self.assertEqual(
+            diagnostics[0]["chunks"][0]["rejection_reason"],
+            "below_relevance_threshold",
+        )
+        llm.invoke.assert_not_called()
+
+    def test_unsupported_incurable_question_still_abstains(self):
+        llm = Mock()
+        document = SimpleNamespace(
+            page_content="Chronic kidney disease is included in the disease section.",
+            metadata={"source_file": "standard-treatment-guidelines.pdf", "page": 12},
+        )
+        fake_reranker = Mock()
+        fake_reranker.predict.return_value = [-5.304]
+        with (
+            patch.object(
+                rag_pipeline,
+                "rewrite_query",
+                return_value="diseases identified as incurable",
+            ),
+            patch.object(
+                rag_pipeline,
+                "smart_retrieve",
+                return_value=([document], "vector"),
+            ),
+            patch("retrieval.reranker.load_reranker", return_value=fake_reranker),
+        ):
+            result = run_rag_pipeline(
+                llm,
+                Mock(),
+                "Which diseases does the document identify as incurable?",
+                return_metadata=True,
             )
         self.assertIn("No sufficiently relevant documents", result[0])
         llm.invoke.assert_not_called()
-        relevance_event = next(
-            event for event in events if event[0][0] == "retrieval_relevance"
-        )
-        self.assertEqual(relevance_event[0][1], "filtered")
-        self.assertEqual(relevance_event[1]["count"], 1)
-        self.assertEqual(result[0].startswith("No sufficiently relevant"), True)
 
     def test_document_detector_failure_is_reported_as_error_and_fails_closed(self):
         llm = Mock()
@@ -223,6 +303,24 @@ class GuardrailEnforcementTests(unittest.TestCase):
         )
         self.assertEqual(result["confidence"], "high")
 
+        broad_relevant = validate_answer(
+            answer,
+            route="rag",
+            context=evidence,
+            source_chunks=[{"relevance_score": -1.328}],
+        )
+        self.assertEqual(broad_relevant["confidence"], "medium")
+        self.assertTrue(broad_relevant["valid"])
+
+        below_threshold = validate_answer(
+            answer,
+            route="rag",
+            context=evidence,
+            source_chunks=[{"relevance_score": -11.2}],
+        )
+        self.assertEqual(below_threshold["confidence"], "low")
+        self.assertFalse(below_threshold["valid"])
+
         unrelated = validate_answer(
             "Astronomy describes planets, stars, galaxies, and distant nebulae.",
             route="rag",
@@ -234,6 +332,7 @@ class GuardrailEnforcementTests(unittest.TestCase):
 
     def test_ungrounded_rag_answer_is_replaced_with_abstention(self):
         model = Mock()
+        trace = Mock()
         unsupported = self._inference_result(
             "Astronomy describes planets, stars, galaxies, and distant nebulae."
         )
@@ -247,11 +346,15 @@ class GuardrailEnforcementTests(unittest.TestCase):
         })
         with (
             patch.dict(os.environ, {"AI_ENABLE_LOGFIRE": "false"}),
-            patch.object(inference_engine, "inference_trace", return_value=nullcontext(None)),
+            patch.object(
+                inference_engine,
+                "inference_trace",
+                return_value=nullcontext(trace),
+            ),
             patch.object(inference_engine.rate_limiter, "check"),
             patch.object(inference_engine, "_run_inference", return_value=unsupported),
-            patch.object(inference_engine, "audit_query"),
-            patch.object(inference_engine, "record_inference"),
+            patch.object(inference_engine, "audit_query") as audit,
+            patch.object(inference_engine, "record_inference") as metrics,
             patch.object(inference_engine, "log_experiment"),
         ):
             result = inference_engine.run_inference("What is the treatment dosage?", model, model, {})
@@ -259,6 +362,12 @@ class GuardrailEnforcementTests(unittest.TestCase):
         self.assertIn("grounding_review_required", result["guardrail_flags"])
         self.assertEqual(result["source_chunks"], [])
         self.assertEqual(result["context_used"], "")
+        self.assertEqual(result["safety_outcome"], "abstained")
+        self.assertEqual(metrics.call_args.args[0]["outcome"], "abstained")
+        self.assertEqual(audit.call_args.args[3], "abstained")
+        trace.record_safety_outcome.assert_called_once_with(
+            "abstained", "insufficient_evidence"
+        )
 
     def test_follow_up_after_rag_stays_on_document_route_and_keeps_history(self):
         model = Mock()
@@ -430,6 +539,39 @@ class GuardrailEnforcementTests(unittest.TestCase):
             result = inference_engine.run_inference("Hi there.", model, model, {})
         self.assertEqual(result["answer"], SAFE_BLOCKED_RESPONSE)
         self.assertIn("unsafe_output", result["guardrail_flags"])
+
+    def test_request_id_is_shared_by_trace_audit_and_metrics(self):
+        model = Mock()
+        trace = Mock()
+        sensitive_query = "Please call me at +1 (212) 555-0199."
+        with (
+            patch.dict(os.environ, {"AI_ENABLE_LOGFIRE": "false"}),
+            patch.object(
+                inference_engine,
+                "inference_trace",
+                return_value=nullcontext(trace),
+            ) as trace_context,
+            patch.object(inference_engine.rate_limiter, "check"),
+            patch.object(
+                inference_engine,
+                "_run_inference",
+                return_value=self._inference_result(),
+            ),
+            patch.object(inference_engine, "audit_query") as audit,
+            patch.object(inference_engine, "record_inference") as metrics,
+            patch.object(inference_engine, "log_experiment"),
+        ):
+            inference_engine.run_inference(
+                sensitive_query, model, model, {}, forced_mode="general"
+            )
+
+        request_id = trace_context.call_args.kwargs["request_id"]
+        self.assertTrue(request_id)
+        self.assertEqual(audit.call_args.kwargs["request_id"], request_id)
+        self.assertEqual(metrics.call_args.args[0]["request_id"], request_id)
+        self.assertIn("[REDACTED_PHONE]", audit.call_args.args[1])
+        telemetry = repr((trace.record_guardrail.call_args_list, audit.call_args, metrics.call_args))
+        self.assertNotIn("555-0199", telemetry)
 
     def test_invalid_output_shape_returns_safe_fallback(self):
         model = Mock()
