@@ -1,15 +1,24 @@
-LLM_MODEL = "phi3"# Primary model — fast, fits in VRAM
+import os
+
+LLM_MODEL = os.getenv("AI_LLM_MODEL", "gemma3:12b")  # Primary model
 # Heavy model — only for research/complex analysis
-LLM_MODEL_HEAVY = "llama3:8b-instruct-q4_0"
-OLLAMA_URL = "http://localhost:11434"
+LLM_MODEL_HEAVY = os.getenv("AI_LLM_MODEL_HEAVY", "gemma3:12b")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-VECTOR_INDEX_PATH = "faiss_index"
-CHUNK_SIZE = 800
-CHUNK_OVERLAP = 100
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VECTOR_INDEX_PATH = os.getenv(
+    "VECTOR_INDEX_PATH",
+    os.path.join(PROJECT_ROOT, "faiss_index"),
+)
+CHUNK_SIZE = 450
+CHUNK_OVERLAP = 160
 TOP_K_RETRIEVAL = 8
 FINAL_CONTEXT_DOCS = 4
-MAX_CHARS_PER_DOC = 700
+MAX_CHARS_PER_DOC = 1200
 MAX_REASONING_DEPTH = 2
+# The relevant book-purpose excerpt scored -1.328 with this reranker.
+MIN_RELEVANCE_SCORE = -2.0
+HIGH_RELEVANCE_SCORE = 3.0
 # Add these lines
-LLM_NUM_PREDICT = 256    # shorter answers = faster
-LLM_TEMPERATURE = 0.1
+LLM_NUM_PREDICT = 2000# shorter answers = faster
+LLM_TEMPERATURE = 0.5

@@ -14,7 +14,6 @@
 # ============================================================
 
 from retrieval.tree_retriever import tree_retrieve
-from retrieval.reranker import rerank_docs
 
 
 QUERY_TYPE_PROMPT = """Classify this document question into ONE of these retrieval strategies:
@@ -58,6 +57,7 @@ def smart_retrieve(
     vector_retriever,
     document_tree=None,
     top_k: int = 5,
+    guardrail_event=None,
 ) -> tuple:
     """
     Hybrid retrieval — uses tree, vector, or both based on query type.
@@ -75,7 +75,10 @@ def smart_retrieve(
     method = classify_query_type(llm, query)
 
     if method == "tree":
-        docs = tree_retrieve(llm, document_tree, query, top_k=top_k)
+        docs = tree_retrieve(
+            llm, document_tree, query, top_k=top_k,
+            guardrail_event=guardrail_event,
+        )
         if not docs:  # fallback if tree fails
             docs = vector_retriever.invoke(query)
             method = "vector (tree fallback)"
@@ -86,7 +89,10 @@ def smart_retrieve(
         return docs, method
 
     else:  # "both"
-        tree_docs   = tree_retrieve(llm, document_tree, query, top_k=3)
+        tree_docs   = tree_retrieve(
+            llm, document_tree, query, top_k=3,
+            guardrail_event=guardrail_event,
+        )
         vector_docs = vector_retriever.invoke(query)
 
         # Merge — deduplicate by content fingerprint
@@ -97,9 +103,5 @@ def smart_retrieve(
             if fp not in seen:
                 seen.add(fp)
                 combined.append(doc)
-
-        # Re-rank the merged set
-        if combined:
-            combined = rerank_docs(query, combined, top_k=top_k)
 
         return combined, "hybrid (tree + vector)"

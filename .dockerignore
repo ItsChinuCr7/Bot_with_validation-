@@ -1,0 +1,15 @@
+.git
+.github
+.pytest_cache
+__pycache__
+*.py[cod]
+.env
+.venv
+venv
+env
+logs
+faiss_index
+data/cache/llm_cache.json
+self_healing_memory.json
+*.pdf
+mlruns

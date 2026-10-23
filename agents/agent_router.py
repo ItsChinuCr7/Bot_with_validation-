@@ -2,24 +2,15 @@
 # agents/agent_router.py
 # ============================================================
 
+import re
+
 ROUTING_RULES = {
     "web":  ["latest news", "current news", "search the web", "search online"],
     "calc": ["calculate", "compute", "solve", "what is the value of"],
     "chat": ["hello", "hi there", "how are you", "who are you", "what can you do"],
 }
 
-CLASSIFY_PROMPT = """You are a query classifier.
-
-Decide if this question needs uploaded documents or general knowledge.
-
-Rules:
-- If it asks about a specific uploaded file, report, contract, paper → answer "rag"
-- If it is a general knowledge question (science, history, coding, facts) → answer "general"
-- If unsure → answer "general"
-
-Question: {query}
-
-Answer with ONLY one word, either "rag" or "general":"""
+from prompts.templates import CLASSIFY_PROMPT, GENERAL_PROMPT, CHAT_PROMPT, CALC_PROMPT
 
 
 def extract_research_query(query: str) -> str:
@@ -53,6 +44,17 @@ def route_query(query: str, has_docs: bool = False, forced_mode: str = None) -> 
         if kw in q:
             return "chat"
 
+    if has_docs and (
+        re.search(
+            r"\b(?:this|the|uploaded|provided|attached)\s+"
+            r"(?:book|document|pdf|file|guideline|report|manual)\b",
+            query,
+            re.IGNORECASE,
+        )
+        or re.search(r"\b[\w-]+\.pdf\b", query, re.IGNORECASE)
+    ):
+        return "rag"
+
     # Research keyword still works as shortcut even without forced_mode
     if "research" in q:
         return "research"
@@ -68,11 +70,23 @@ def route_query(query: str, has_docs: bool = False, forced_mode: str = None) -> 
     return "needs_classification"
 
 
-def route_with_llm(llm, query: str, has_docs: bool) -> str:
+def route_with_llm(llm, query: str, has_docs: bool, history: list | None = None) -> str:
     if not has_docs:
         return "general"
     try:
-        result = llm.invoke(CLASSIFY_PROMPT.format(query=query)).content.strip().lower()
+        classification_query = query
+        if history:
+            turns = "\n".join(
+                f"{entry['role']}: {entry['message']}"
+                for entry in history[-4:]
+            )
+            classification_query = (
+                f"Recent conversation:\n{turns}\n\n"
+                f"Current question: {query}"
+            )
+        result = llm.invoke(
+            CLASSIFY_PROMPT.format(query=classification_query)
+        ).content.strip().lower()
         return "rag" if "rag" in result else "general"
     except Exception:
         return "rag"
@@ -87,15 +101,10 @@ def handle_calc_query(llm, query: str) -> str:
 
 
 def handle_chat_query(llm, query: str) -> str:
-    return llm.invoke(f"You are a friendly AI assistant. Answer conversationally:\n\n{query}").content
+    prompt = CHAT_PROMPT.format(question=query)
+    return llm.invoke(prompt).content
 
 
 def handle_general_query(llm, query: str) -> str:
-    prompt = f"""You are a knowledgeable AI assistant.
-Answer this question clearly and accurately from your own knowledge.
-If you are not sure, say so honestly.
-
-Question: {query}
-
-Answer:"""
+    prompt = GENERAL_PROMPT.format(question=query)
     return llm.invoke(prompt).content

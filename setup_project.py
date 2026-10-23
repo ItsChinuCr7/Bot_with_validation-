@@ -1,11 +1,7 @@
 """
-Run this ONCE from D:\ai_doc_system to create the entire project structure.
-Usage: python setup_project.py
+Legacy project generator retained for reference only.
+It is disabled because its embedded app template bypasses centralized guardrails.
 """
-
-import os
-
-BASE = r"D:\ai_doc_system"
 
 FILES = {
 
@@ -440,16 +436,10 @@ pypdf
 }
 
 def create_project():
-    for filepath, content in FILES.items():
-        full_path = os.path.join(BASE, filepath)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with open(full_path, "w", encoding="utf-8") as f:
-            f.write(content.lstrip("\n"))
-        print(f"  Created: {filepath}")
-    print("\n✅ Project created! Now run:")
-    print("   cd D:\\ai_doc_system")
-    print("   pip install -r requirements.txt")
-    print("   streamlit run app.py")
+    raise RuntimeError(
+        "This legacy project generator is disabled because its embedded app "
+        "bypasses centralized guardrails. Run the maintained app.py instead."
+    )
 
 if __name__ == "__main__":
     create_project()
