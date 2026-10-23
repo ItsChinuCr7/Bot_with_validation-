@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install application and test dependencies
+        run: python -m pip install -r requirements.txt -r requirements-ml.txt
       - name: Compile Python files
         run: python -m compileall -q .
       - name: Run platform unit tests
