@@ -25,18 +25,42 @@ HEAVY_MODELS = {"llama3", "llama2", "mixtral", "gemma2", "mistral-large", "qwen2
 
 def get_available_models() -> list[str]:
     """
-    Query Ollama API to get all locally installed models.
+    Query Ollama for locally installed models that support chat completion.
     Falls back to settings defaults if Ollama is unreachable.
     """
     try:
         resp = requests.get(f"{OLLAMA_URL}/api/tags", timeout=3)
         if resp.status_code == 200:
-            models = [m["name"] for m in resp.json().get("models", [])]
+            installed_models = [m["name"] for m in resp.json().get("models", [])]
+            models = [name for name in installed_models if _supports_chat(name)]
             logger.info(f"Model factory: found {len(models)} Ollama models")
-            return sorted(models) if models else [LLM_MODEL, LLM_MODEL_HEAVY]
+            return sorted(models) if installed_models else [LLM_MODEL, LLM_MODEL_HEAVY]
     except Exception as e:
         logger.warning(f"Could not reach Ollama API: {e}")
     return [LLM_MODEL, LLM_MODEL_HEAVY]
+
+
+def _supports_chat(model_name: str) -> bool:
+    """Exclude embedding-only Ollama models from the chat model selector."""
+    try:
+        response = requests.post(
+            f"{OLLAMA_URL}/api/show",
+            json={"name": model_name},
+            timeout=3,
+        )
+        response.raise_for_status()
+        model_info = response.json()
+    except requests.RequestException as exc:
+        logger.warning("Could not inspect Ollama model %s: %s", model_name, exc)
+        return False
+
+    capabilities = model_info.get("capabilities")
+    if isinstance(capabilities, list):
+        return "completion" in capabilities
+
+    details = model_info.get("details") or {}
+    family = str(details.get("family", "")).lower()
+    return family != "bert" and "embed" not in model_name.lower()
 
 
 def is_heavy_model(model_name: str) -> bool:

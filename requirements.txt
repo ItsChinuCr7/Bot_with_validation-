@@ -8,3 +8,10 @@ faiss-cpu
 sentence-transformers
 rank_bm25
 pypdf
+pymupdf
+selenium
+webdriver-manager
+beautifulsoup4
+requests
+pyperclip
+pydantic>=2.7,<3

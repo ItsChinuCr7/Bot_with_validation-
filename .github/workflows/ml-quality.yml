@@ -1,0 +1,51 @@
+name: ML quality checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_ragas_eval:
+        description: Run the local-Ollama RAGAS quality gate
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  unit-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile Python files
+        run: python -m compileall -q .
+      - name: Run platform unit tests
+        run: python -m unittest discover -s tests -v
+
+  ragas-evaluation:
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_ragas_eval) }}
+    runs-on: [self-hosted, windows]
+    env:
+      RAGAS_DATASET: ${{ vars.RAGAS_DATASET }}
+      VECTOR_INDEX_PATH: ${{ vars.VECTOR_INDEX_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install optional evaluation dependencies
+        run: python -m pip install -r requirements-ml.txt
+      - name: Validate RAGAS dataset configuration
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:RAGAS_DATASET)) {
+            Write-Error "Set the repository variable RAGAS_DATASET to a JSON dataset with question and ground_truth fields."
+            exit 1
+          fi
+          if ([string]::IsNullOrWhiteSpace($env:VECTOR_INDEX_PATH)) {
+            Write-Error "Set VECTOR_INDEX_PATH to a provisioned FAISS index directory on the self-hosted runner."
+            exit 1
+          fi
+      - name: Enforce RAGAS faithfulness threshold
+        run: python -m evaluation.eval_suite --dataset "$env:RAGAS_DATASET" --query-index --min-faithfulness 0.8

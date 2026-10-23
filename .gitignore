@@ -1,4 +1,4 @@
-# Python
+# Python runtime and build artifacts
 __pycache__/
 *.py[cod]
 *.pyo
@@ -50,3 +50,7 @@ logs/
 # ChromeDriver (auto-downloaded)
 chromedriver*
 chromedriver.exe
+
+# Evaluation and experiment output
+evaluation/results/
+mlruns/

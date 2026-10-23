@@ -57,11 +57,23 @@ def route_query(query: str, has_docs: bool = False, forced_mode: str = None) -> 
     return "needs_classification"
 
 
-def route_with_llm(llm, query: str, has_docs: bool) -> str:
+def route_with_llm(llm, query: str, has_docs: bool, history: list | None = None) -> str:
     if not has_docs:
         return "general"
     try:
-        result = llm.invoke(CLASSIFY_PROMPT.format(query=query)).content.strip().lower()
+        classification_query = query
+        if history:
+            turns = "\n".join(
+                f"{entry['role']}: {entry['message']}"
+                for entry in history[-4:]
+            )
+            classification_query = (
+                f"Recent conversation:\n{turns}\n\n"
+                f"Current question: {query}"
+            )
+        result = llm.invoke(
+            CLASSIFY_PROMPT.format(query=classification_query)
+        ).content.strip().lower()
         return "rag" if "rag" in result else "general"
     except Exception:
         return "rag"

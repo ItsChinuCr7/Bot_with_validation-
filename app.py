@@ -2,6 +2,8 @@ import streamlit as st
 import os
 import time
 import logging
+import html
+from urllib.parse import urlparse
 from config.logging_config import setup_logging
 setup_logging("INFO")
 logger = logging.getLogger(__name__)
@@ -15,6 +17,13 @@ from retrieval.retriever import get_mmr_retriever
 from retrieval.hybrid_search import HybridSearcher
 from reasoning.rag_pipeline import run_rag_pipeline, run_general_with_memory, format_history
 from inference.inference_engine import run_inference
+from guardrails.input_validator import (
+    SAFE_BLOCKED_RESPONSE,
+    GuardrailCheckError,
+    InputValidationError,
+    sanitize_stored_history,
+)
+from middleware.rate_limiter import RateLimitExceeded
 from data.cache.cache_manager import get_cache_stats, clear_cache
 from agents.agent_router import (
     route_query, route_with_llm,
@@ -25,7 +34,7 @@ from research.web_researcher import (
     run_research, extract_research_query,
 )
 from evaluation.answer_validator import validate_answer, format_confidence_badge
-from config.settings import VECTOR_INDEX_PATH
+from config.settings import LLM_MODEL, VECTOR_INDEX_PATH
 
 # ── Page config ───────────────────────────────────────────
 st.set_page_config(
@@ -113,8 +122,18 @@ def _load_models(model_name: str = None):
     return load_llm(model_name), load_llm_heavy(), load_embeddings()
 
 # Model selector — persists across reruns
+available_models = get_available_models()
+if not available_models:
+    st.error("No Ollama chat-capable models are installed. Install a chat model and restart.")
+    st.stop()
+
 if "selected_model" not in st.session_state:
     st.session_state["selected_model"] = None
+
+if st.session_state["selected_model"] not in available_models:
+    st.session_state["selected_model"] = (
+        LLM_MODEL if LLM_MODEL in available_models else available_models[0]
+    )
 
 _sel = st.session_state.get("selected_model")
 llm, llm_heavy, embeddings = _load_models(_sel)
@@ -126,8 +145,6 @@ with st.sidebar:
 
     # ── Model Selector ─────────────────────────────────────
     st.markdown("**🤖 Active Model**")
-    available_models = get_available_models()
-    from config.settings import LLM_MODEL
     default_idx = available_models.index(LLM_MODEL) if LLM_MODEL in available_models else 0
     chosen_model = st.selectbox(
         "Select model",
@@ -166,7 +183,12 @@ with st.sidebar:
                 _time.sleep(0.2)
                 prog.progress(10, text="Parsing PDF structure...")
 
-                chunks, doc_trees = load_and_split_pdfs(uploaded_files)
+                try:
+                    chunks, doc_trees = load_and_split_pdfs(uploaded_files)
+                except RuntimeError as exc:
+                    logger.error("PDF processing failed (%s)", type(exc).__name__)
+                    st.error(str(exc))
+                    st.stop()
 
                 prog.progress(30, text=f"Extracted {len(chunks)} chunks")
                 st.write(f"✅ **{len(chunks)} chunks** extracted from {len(uploaded_files)} file(s)")
@@ -259,8 +281,12 @@ with st.sidebar:
 if "vector_db" not in st.session_state and os.path.exists(VECTOR_INDEX_PATH):
     try:
         st.session_state["vector_db"] = load_vector_store(embeddings)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error("Saved document index could not be loaded (%s)", type(exc).__name__)
+        st.warning(
+            "The saved document index could not be loaded with the configured "
+            "embeddings. Reprocess the PDFs before asking document questions."
+        )
 
 # ── Header ────────────────────────────────────────────────
 st.markdown("# 🤖 AI Document Intelligence Assistant")
@@ -270,8 +296,26 @@ with col1:
     if "vector_db" not in st.session_state:
         st.info("📭 No documents loaded — upload PDFs or ask general questions!")
     else:
-        tree_count = sum(len(t.all_nodes) for t in st.session_state.get("doc_trees", {}).values())
-        st.success(f"📚 Documents loaded — {tree_count} tree sections indexed")
+        indexed_docs = st.session_state.get("docs")
+        if not isinstance(indexed_docs, list):
+            docstore = getattr(st.session_state["vector_db"], "docstore", None)
+            indexed_docs = list(getattr(docstore, "_dict", {}).values())
+        source_counts = {}
+        for document in indexed_docs:
+            source = getattr(document, "metadata", {}).get("source_file", "unknown")
+            source_counts[source] = source_counts.get(source, 0) + 1
+        st.success(
+            f"📚 Documents loaded — {len(indexed_docs)} chunks from "
+            f"{len(source_counts)} file(s)"
+        )
+        if source_counts:
+            st.caption(
+                "Indexed files: "
+                + ", ".join(
+                    f"{html.escape(str(source))} ({count})"
+                    for source, count in sorted(source_counts.items())
+                )
+            )
 with col2:
     if memory_on:
         st.success("🧠 Memory ON")
@@ -284,12 +328,26 @@ with col3:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+try:
+    safe_history, removed_history = sanitize_stored_history(
+        st.session_state.chat_history
+    )
+    st.session_state.chat_history = safe_history
+    if removed_history:
+        logger.info("Removed unsafe stored chat entries (%d)", removed_history)
+except GuardrailCheckError:
+    logger.error("Stored conversation screening failed; chat history blocked.")
+    st.error(SAFE_BLOCKED_RESPONSE)
+    st.stop()
+
 for entry in st.session_state.chat_history:
     if entry["role"] == "user":
-        st.markdown(f'<div class="user-bubble">{entry["message"]}</div>', unsafe_allow_html=True)
+        safe_message = html.escape(entry["message"]).replace("\n", "<br>")
+        st.markdown(f'<div class="user-bubble">{safe_message}</div>', unsafe_allow_html=True)
     else:
         bubble = "bot-bubble"
-        st.markdown(f'<div class="{bubble}">{entry["message"]}</div>', unsafe_allow_html=True)
+        safe_message = html.escape(entry["message"]).replace("\n", "<br>")
+        st.markdown(f'<div class="{bubble}">{safe_message}</div>', unsafe_allow_html=True)
 
         if entry.get("source_extracts"):
             with st.expander(f"📄 View {len(entry['source_extracts'])} scraped source(s)"):
@@ -298,10 +356,28 @@ for entry in st.session_state.chat_history:
                     url   = r.get("url", "")
                     body  = r.get("content", "")[:600]
                     dots  = "..." if len(r.get("content", "")) > 600 else ""
+                    parsed_url = urlparse(url)
+                    safe_url = html.escape(url, quote=True) if parsed_url.scheme in {"http", "https"} else "#"
+                    safe_src = html.escape(src)
+                    safe_body = html.escape(body).replace("\n", "<br>")
                     st.markdown(f"""<div class="source-card">
-<b>🔗 {src}</b> — <a href="{url}" target="_blank">{url[:75]}</a><br><br>
-{body}{dots}
+<b>🔗 {safe_src}</b> — <a href="{safe_url}" target="_blank" rel="noopener noreferrer">{html.escape(url[:75])}</a><br><br>
+{safe_body}{html.escape(dots)}
 </div>""", unsafe_allow_html=True)
+
+        if entry.get("source_chunks"):
+            with st.expander(f"🧬 Trace {len(entry['source_chunks'])} retrieved chunk(s)"):
+                st.json(entry["source_chunks"])
+
+        if entry.get("retrieval_diagnostics"):
+            with st.expander("🔎 Retrieval diagnostics (scores and filters)"):
+                st.json(entry["retrieval_diagnostics"])
+
+        if entry.get("guardrail_outcomes"):
+            with st.expander(
+                f"🛡️ Safety checks — {entry.get('safety_outcome', 'unknown')}"
+            ):
+                st.json(entry["guardrail_outcomes"])
 
         if entry.get("meta"):
             st.markdown(f'<div class="meta-line">{entry["meta"]}</div>', unsafe_allow_html=True)
@@ -310,25 +386,41 @@ for entry in st.session_state.chat_history:
 user_input = st.chat_input("Ask anything — upload docs to query them, or ask general questions...")
 
 if user_input:
-    st.session_state.chat_history.append({"role": "user", "message": user_input})
-    history_for_llm  = st.session_state.chat_history[:-1] if memory_on else []
-
     start = time.time()
 
     with st.status("Thinking...", expanded=True) as status:
 
-        logger.info(f"Query: {user_input[:80]!r}")
-        result = run_inference(
-            query          = user_input,
-            llm            = llm,
-            llm_heavy      = llm_heavy,
-            session_state  = st.session_state,
-            memory_on      = memory_on,
-            forced_mode    = forced_mode,
-            use_hybrid     = use_hybrid,
-            progress_callback = st.write,
-        )
+        logger.info("Query received (%d characters)", len(user_input))
+        try:
+            result = run_inference(
+                query          = user_input,
+                llm            = llm,
+                llm_heavy      = llm_heavy,
+                session_state  = st.session_state,
+                memory_on      = memory_on,
+                forced_mode    = forced_mode,
+                use_hybrid     = use_hybrid,
+                progress_callback = st.write,
+            )
+        except (InputValidationError, RateLimitExceeded) as exc:
+            status.update(label="Request blocked", state="error", expanded=False)
+            st.error(str(exc))
+            st.stop()
+        except GuardrailCheckError:
+            logger.error("Guardrail check failed; request blocked.")
+            status.update(label="Request blocked", state="error", expanded=False)
+            st.error(SAFE_BLOCKED_RESPONSE)
+            st.stop()
+        except Exception as exc:
+            logger.error("Request failed (%s)", type(exc).__name__)
+            status.update(label="Request unavailable", state="error", expanded=False)
+            st.error("The request could not be completed safely. Please try again.")
+            st.stop()
 
+        safe_user_message = result.pop("safe_query")
+        st.session_state.chat_history.append(
+            {"role": "user", "message": safe_user_message}
+        )
         logger.info(f"Route: {result['route']} | Answer length: {len(result['answer'])} chars")
         answer           = result["answer"]
         route            = result["route"]
@@ -338,7 +430,13 @@ if user_input:
         context_used     = result["context_used"]
 
         elapsed    = round(time.time() - start, 2)
-        validation = validate_answer(answer)
+        validation = validate_answer(
+            answer,
+            route=route,
+            context=context_used,
+            source_chunks=result.get("source_chunks", []),
+            guardrail_flags=result.get("guardrail_flags", []),
+        )
         badge      = format_confidence_badge(validation["confidence"])
 
         status.update(
@@ -351,14 +449,38 @@ if user_input:
     parts = [f"⏱ {elapsed}s", f"Route: {route.upper()}"]
     if retrieval_method:
         parts.append(f"Retrieval: {retrieval_method}")
+    if route == "rag":
+        parts.append(
+            f"Chunks: {result.get('chunks_retrieved', 0)} retrieved/"
+            f"{result.get('chunks_used', 0)} used"
+        )
+        parts.append(
+            f"Evidence score: {validation['retrieval_score'] if validation['retrieval_score'] is not None else 'n/a'}"
+        )
+        parts.append(f"Grounding: {validation['grounding_score']:.0%}")
     if chosen_sources:
         parts.append(f"Sources: {' · '.join(s.upper() for s in chosen_sources)}")
+    if result.get("guardrail_flags"):
+        parts.append(f"Guardrails: {', '.join(result['guardrail_flags'])}")
+    for event in result.get("guardrail_outcomes", []):
+        if event.get("stage") == "document_screening":
+            parts.append(
+                f"Document screening: {event['decision']}; "
+                f"{event['count']} rejected"
+            )
+    parts.append(f"Safety: {result.get('safety_outcome', 'unknown')}")
     parts.append(badge)
 
     st.session_state.chat_history.append({
         "role":            "bot",
         "message":         answer,
         "source_extracts": source_extracts,
-        "meta":            " &nbsp;|&nbsp; ".join(parts),
+        "source_chunks":   result.get("source_chunks", []),
+        "retrieval_diagnostics": result.get("retrieval_diagnostics", {}),
+        "guardrail_outcomes": result.get("guardrail_outcomes", []),
+        "safety_outcome": result.get("safety_outcome", "unknown"),
+        "confidence": validation,
+        "route":           route,
+        "meta":            html.escape(" | ".join(parts)),
     })
     st.rerun()

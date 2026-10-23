@@ -13,6 +13,7 @@
 # ============================================================
 
 from ingestion.document_tree import DocumentTree, TreeNode
+from guardrails.input_validator import screen_untrusted_text
 
 
 # LLM prompt to navigate the document tree
@@ -35,7 +36,13 @@ Instructions:
 Most relevant sections:"""
 
 
-def tree_retrieve(llm, document_tree: DocumentTree, query: str, top_k: int = 3) -> list:
+def tree_retrieve(
+    llm,
+    document_tree: DocumentTree,
+    query: str,
+    top_k: int = 3,
+    guardrail_event=None,
+) -> list:
     """
     Use LLM reasoning to navigate document tree and retrieve relevant sections.
 
@@ -53,8 +60,32 @@ def tree_retrieve(llm, document_tree: DocumentTree, query: str, top_k: int = 3) 
     if not document_tree.all_nodes:
         return []
 
-    # Step 1: Get document outline
-    outline = document_tree.get_outline()
+    # Titles and section bodies are document-sourced and are screened before
+    # the navigation model sees them.
+    safe_nodes = []
+    rejected_nodes = 0
+    for node in document_tree.all_nodes:
+        safe_title, title_rejected = screen_untrusted_text(node.title)
+        safe_content, content_rejected = screen_untrusted_text(node.content)
+        if title_rejected or content_rejected:
+            rejected_nodes += 1
+            continue
+        safe_nodes.append((node, safe_title, safe_content))
+    if guardrail_event:
+        guardrail_event(
+            "document_tree_screening",
+            "filtered" if rejected_nodes else "passed",
+            "prompt_injection" if rejected_nodes else "none",
+            count=rejected_nodes,
+        )
+    if not safe_nodes:
+        return []
+
+    # Build the outline only from the screened node titles.
+    outline = "\n".join(
+        f"[L{node.level}] {safe_title} (p.{node.page})"
+        for node, safe_title, _ in safe_nodes
+    )
 
     # Truncate outline if too long for LLM context
     if len(outline) > 3000:
@@ -73,24 +104,34 @@ def tree_retrieve(llm, document_tree: DocumentTree, query: str, top_k: int = 3) 
     if selected_titles:
         for title in selected_titles:
             # Exact match first
-            for node in document_tree.all_nodes:
-                if node.title.strip().lower() == title.strip().lower():
+            for node, safe_title, _ in safe_nodes:
+                if safe_title.strip().lower() == title.strip().lower():
                     matched_nodes.append(node)
                     break
 
         # Fuzzy fallback — partial match
         if not matched_nodes:
             keywords = [t.split()[0] for t in selected_titles if t.split()]
-            matched_nodes = document_tree.find_nodes_by_title(keywords)
+            matched_nodes = [
+                node for node, safe_title, _ in safe_nodes
+                if any(keyword.lower() in safe_title.lower() for keyword in keywords)
+            ]
 
     # Fallback — return first few nodes if LLM navigation failed
     if not matched_nodes:
-        matched_nodes = document_tree.all_nodes[:top_k]
+        matched_nodes = [node for node, _, _ in safe_nodes[:top_k]]
 
     # Step 5: Build Document objects from matched nodes
     results = []
+    safe_by_id = {id(node): (title, content) for node, title, content in safe_nodes}
     for node in matched_nodes[:top_k]:
-        content = document_tree.get_node_with_context(node, include_children=True)
+        title, node_content = safe_by_id[id(node)]
+        content_parts = [f"[{title}]\n{node_content}"]
+        for child in node.children:
+            if id(child) in safe_by_id:
+                child_title, child_content = safe_by_id[id(child)]
+                content_parts.append(f"[{child_title}]\n{child_content}")
+        content = "\n\n".join(content_parts)
         doc = Document(
             page_content=content[:1500],  # cap per section
             metadata={
